@@ -1,0 +1,17 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "Frontend (Next.js)",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev"],
+      "port": 3000
+    },
+    {
+      "name": "Backend (FastAPI)",
+      "runtimeExecutable": "bash",
+      "runtimeArgs": ["-c", "cd /Users/sharathkancharla/cards-strategy-engine && uvicorn backend.api:app --reload --port 8000"],
+      "port": 8000
+    }
+  ]
+}

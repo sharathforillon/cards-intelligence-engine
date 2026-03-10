@@ -1,0 +1,20 @@
+# Python
+.env
+venv/
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+
+# Node / Next.js
+node_modules/
+.next/
+out/
+npm-debug.log*
+
+# SQLite databases (generated at runtime)
+*.db
+
+# OS
+.DS_Store
+Thumbs.db

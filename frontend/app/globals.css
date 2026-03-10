@@ -1,0 +1,282 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* =========================================================
+   CARDS STRATEGY ENGINE — Design System v3
+   Clean, professional, soothing light theme
+   ========================================================= */
+
+:root {
+  /* Backgrounds */
+  --c-bg:       #f0f4f8;
+  --c-surface:  #ffffff;
+  --c-elevated: #f8fafc;
+  --c-input:    #f1f5f9;
+
+  /* Borders */
+  --c-border:        #d1dde9;
+  --c-border-md:     #b8cce0;
+  --c-border-bright: rgba(37, 99, 235, 0.30);
+
+  /* Text */
+  --c-text:       #1e2d3d;
+  --c-text-2:     #4a6480;
+  --c-text-muted: #8fa5b8;
+
+  /* Accents */
+  --c-blue:          #2563eb;
+  --c-blue-bright:   #3b82f6;
+  --c-emerald:       #059669;
+  --c-emerald-bright:#10b981;
+  --c-amber:         #d97706;
+  --c-rose:          #e11d48;
+  --c-violet:        #7c3aed;
+  --c-cyan:          #0284c7;
+  --c-cyan-bright:   #0ea5e9;
+}
+
+/* ── Base ────────────────────────────────────────────────── */
+
+html {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  font-family: var(--font-inter), system-ui, -apple-system, sans-serif;
+  background-color: var(--c-bg);
+  color: var(--c-text);
+}
+
+.font-heading {
+  font-family: var(--font-montserrat), system-ui, sans-serif;
+}
+
+/* ── Scrollbars ───────────────────────────────────────────── */
+
+::-webkit-scrollbar          { width: 5px; height: 5px; }
+::-webkit-scrollbar-track    { background: transparent; }
+::-webkit-scrollbar-thumb    { background: #b8cce0; border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: rgba(37,99,235,0.35); }
+
+/* ── Panel ────────────────────────────────────────────────── */
+
+.panel {
+  background: var(--c-surface);
+  border-radius: 14px;
+  border: 1px solid var(--c-border);
+  padding: 20px 24px;
+  box-shadow:
+    0 1px 3px rgba(0,0,0,0.04),
+    0 4px 16px rgba(0,0,0,0.06);
+}
+
+/* ── Section title ─────────────────────────────────────────── */
+
+.section-title {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--c-text-muted);
+  margin-bottom: 16px;
+}
+
+/* ── Range sliders ─────────────────────────────────────────── */
+
+input[type="range"] {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 3px;
+  border-radius: 2px;
+  background: #d1dde9;
+  outline: none;
+  cursor: pointer;
+  width: 100%;
+}
+
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: #2563eb;
+  box-shadow: 0 0 6px rgba(37,99,235,0.35);
+  cursor: pointer;
+  border: 2px solid #ffffff;
+  transition: box-shadow 0.15s;
+}
+
+input[type="range"]::-webkit-slider-thumb:hover {
+  box-shadow: 0 0 12px rgba(37,99,235,0.55);
+}
+
+input[type="range"]::-moz-range-thumb {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: #2563eb;
+  cursor: pointer;
+  border: 2px solid #ffffff;
+}
+
+/* ── Number inputs ──────────────────────────────────────────── */
+
+input[type="number"]::-webkit-inner-spin-button,
+input[type="number"]::-webkit-outer-spin-button {
+  opacity: 0.4;
+}
+
+/* ── Form elements ──────────────────────────────────────────── */
+
+.input-dark {
+  background: var(--c-input);
+  border: 1px solid var(--c-border);
+  border-radius: 8px;
+  padding: 7px 12px;
+  color: var(--c-text);
+  font-size: 13px;
+  width: 100%;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.input-dark::placeholder {
+  color: var(--c-text-muted);
+}
+
+.input-dark:focus {
+  outline: none;
+  border-color: rgba(37,99,235,0.45);
+  box-shadow: 0 0 0 3px rgba(37,99,235,0.08);
+}
+
+select.input-dark {
+  background-color: var(--c-input);
+  color: var(--c-text);
+}
+
+/* ── Buttons ─────────────────────────────────────────────────── */
+
+.btn-primary {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  padding: 7px 16px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s;
+  box-shadow: 0 2px 6px rgba(37,99,235,0.25);
+  white-space: nowrap;
+}
+
+.btn-primary:hover {
+  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+  box-shadow: 0 4px 12px rgba(59,130,246,0.35);
+  transform: translateY(-1px);
+}
+
+.btn-primary:active {
+  transform: translateY(0);
+}
+
+.btn-ghost {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: transparent;
+  color: var(--c-text-2);
+  border: 1px solid var(--c-border);
+  border-radius: 8px;
+  padding: 6px 12px;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s;
+  white-space: nowrap;
+}
+
+.btn-ghost:hover {
+  background: rgba(37,99,235,0.05);
+  border-color: rgba(37,99,235,0.22);
+  color: var(--c-text);
+}
+
+/* ── Data tables ─────────────────────────────────────────────── */
+
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+
+.data-table th {
+  padding: 8px 12px;
+  text-align: left;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--c-text-muted);
+  background: #f8fafc;
+  border-bottom: 1px solid var(--c-border);
+}
+
+.data-table td {
+  padding: 9px 12px;
+  border-bottom: 1px solid rgba(209,221,233,0.8);
+  color: #2d4a62;
+  vertical-align: top;
+}
+
+.data-table tbody tr:hover td {
+  background: rgba(37,99,235,0.03);
+}
+
+.data-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+/* ── Animations ──────────────────────────────────────────────── */
+
+@keyframes ping-soft {
+  0%   { transform: scale(1);   opacity: 1; }
+  70%  { transform: scale(1.8); opacity: 0; }
+  100% { transform: scale(1.8); opacity: 0; }
+}
+
+@keyframes slide-up {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+.animate-slide-up { animation: slide-up 0.3s ease-out; }
+.animate-fade-in  { animation: fade-in 0.25s ease-out; }
+
+/* Pulsing dot for live indicators */
+.dot-pulse {
+  position: relative;
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+}
+
+.dot-pulse::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: inherit;
+  animation: ping-soft 2.5s cubic-bezier(0, 0, 0.2, 1) infinite;
+}
