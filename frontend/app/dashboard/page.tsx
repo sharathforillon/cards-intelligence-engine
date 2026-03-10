@@ -92,7 +92,7 @@ export default function Dashboard() {
             <div>
               <p
                 className="mb-1 text-[10px] font-bold uppercase tracking-[0.2em]"
-                style={{ color: "#8fa5b8" }}
+                style={{ color: "#3d5570" }}
               >
                 Cards Strategy · Command Center
               </p>
@@ -280,7 +280,7 @@ function MetricTile({
     >
       <span
         className="text-[10px] font-bold uppercase tracking-[0.16em]"
-        style={{ color: "#8fa5b8" }}
+        style={{ color: "#3d5570" }}
       >
         {label}
       </span>
@@ -291,7 +291,7 @@ function MetricTile({
         {value}
       </span>
       {helper && (
-        <span className="mt-0.5 text-[11px]" style={{ color: "#8fa5b8" }}>
+        <span className="mt-0.5 text-[11px]" style={{ color: "#3d5570" }}>
           {helper}
         </span>
       )}

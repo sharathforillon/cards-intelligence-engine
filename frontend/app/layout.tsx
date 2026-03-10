@@ -59,7 +59,7 @@ export default function RootLayout({
                 </span>
                 <span
                   className="hidden text-[10px] font-medium uppercase tracking-[0.14em] sm:inline"
-                  style={{ color: "#8fa5b8" }}
+                  style={{ color: "#3d5570" }}
                 >
                   Head of Cards · UAE
                 </span>

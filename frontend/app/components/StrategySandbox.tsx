@@ -91,7 +91,7 @@ export default function StrategySandbox() {
         {/* Card selector */}
         <div>
           <label className="block">
-            <span className="mb-1.5 block text-[10px] font-bold uppercase tracking-[0.16em]" style={{ color: "#8fa5b8" }}>
+            <span className="mb-1.5 block text-[10px] font-bold uppercase tracking-[0.16em]" style={{ color: "#3d5570" }}>
               Mashreq card anchor
             </span>
             <select
@@ -181,7 +181,7 @@ export default function StrategySandbox() {
 function StatItem({ label, value }: { label: string; value: string }) {
   return (
     <div>
-      <p style={{ color: "#8fa5b8" }}>{label}</p>
+      <p style={{ color: "#3d5570" }}>{label}</p>
       <p className="mt-0.5 font-medium" style={{ color: "#1e2d3d" }}>{value}</p>
     </div>
   );
@@ -217,7 +217,7 @@ function SimMetric({ label, value, tone = "blue" }: { label: string; value: stri
   const t = simToneMap[tone];
   return (
     <div className="rounded-xl px-3 py-2.5" style={{ background: t.bg, border: `1px solid ${t.border}` }}>
-      <p className="text-[10px] font-bold uppercase tracking-[0.14em]" style={{ color: "#8fa5b8" }}>{label}</p>
+      <p className="text-[10px] font-bold uppercase tracking-[0.14em]" style={{ color: "#3d5570" }}>{label}</p>
       <p className="mt-1 text-base font-bold tabular-nums" style={{ color: t.value }}>{value}</p>
     </div>
   );

@@ -99,7 +99,7 @@ export default function StrategyLeaderboard() {
                       className="inline-flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-bold"
                       style={{
                         background: rank ? `${rank.badge}18` : "#f1f5f9",
-                        color: rank ? rank.badge : "#8fa5b8",
+                        color: rank ? rank.badge : "#3d5570",
                       }}
                     >
                       {rank ? rank.label : idx + 1}
@@ -134,7 +134,7 @@ export default function StrategyLeaderboard() {
             })}
             {rows.length === 0 && (
               <tr>
-                <td colSpan={6} className="py-8 text-center text-xs" style={{ color: "#8fa5b8" }}>
+                <td colSpan={6} className="py-8 text-center text-xs" style={{ color: "#3d5570" }}>
                   {loading ? "Running strategy simulation…" : "No strategies evaluated yet."}
                 </td>
               </tr>

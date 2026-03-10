@@ -44,7 +44,7 @@ export default function PortfolioPanel() {
               className="rounded-xl px-3 py-2.5 text-xs"
               style={{ background: "rgba(5,150,105,0.06)", border: "1px solid rgba(5,150,105,0.16)" }}
             >
-              <p className="text-[10px] font-bold uppercase tracking-[0.14em]" style={{ color: "#8fa5b8" }}>
+              <p className="text-[10px] font-bold uppercase tracking-[0.14em]" style={{ color: "#3d5570" }}>
                 Total active
               </p>
               <p className="mt-1 text-lg font-bold tabular-nums" style={{ color: "#059669" }}>
@@ -55,7 +55,7 @@ export default function PortfolioPanel() {
               className="rounded-xl px-3 py-2.5 text-xs"
               style={{ background: "rgba(37,99,235,0.06)", border: "1px solid rgba(37,99,235,0.16)" }}
             >
-              <p className="text-[10px] font-bold uppercase tracking-[0.14em]" style={{ color: "#8fa5b8" }}>
+              <p className="text-[10px] font-bold uppercase tracking-[0.14em]" style={{ color: "#3d5570" }}>
                 Monthly spend
               </p>
               <p className="mt-1 text-lg font-bold tabular-nums" style={{ color: "#2563eb" }}>
@@ -95,7 +95,7 @@ export default function PortfolioPanel() {
               })}
               {cards.length === 0 && (
                 <tr>
-                  <td colSpan={4} className="py-8 text-center text-xs" style={{ color: "#8fa5b8" }}>
+                  <td colSpan={4} className="py-8 text-center text-xs" style={{ color: "#3d5570" }}>
                     {loading ? "Loading portfolio cards…" : "No portfolio data available."}
                   </td>
                 </tr>
@@ -110,7 +110,7 @@ export default function PortfolioPanel() {
             className="rounded-xl px-3 py-3"
             style={{ background: "#f8fafc", border: "1px solid #d1dde9", height: "88px" }}
           >
-            <p className="mb-1 text-[10px] font-bold uppercase tracking-[0.14em]" style={{ color: "#8fa5b8" }}>
+            <p className="mb-1 text-[10px] font-bold uppercase tracking-[0.14em]" style={{ color: "#3d5570" }}>
               Active cards trend (synthetic)
             </p>
             <div style={{ height: "52px" }}>

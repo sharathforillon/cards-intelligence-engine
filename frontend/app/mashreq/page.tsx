@@ -218,7 +218,7 @@ export default function MashreqPortfolioPage() {
 
         {/* ── Page Header ────────────────────────────────────────────────── */}
         <header className="pb-5" style={{ borderBottom: "1px solid #d1dde9" }}>
-          <p className="mb-1 text-xs font-bold uppercase tracking-[0.18em]" style={{ color: "#8fa5b8" }}>
+          <p className="mb-1 text-xs font-bold uppercase tracking-[0.18em]" style={{ color: "#3d5570" }}>
             Cards Strategy · Portfolio Management
           </p>
           <h1 className="font-heading text-3xl font-bold tracking-tight" style={{ color: "#1e2d3d" }}>
@@ -333,7 +333,7 @@ export default function MashreqPortfolioPage() {
 
                     {/* Market Position row */}
                     <div>
-                      <p className="mb-2 text-[10px] font-bold uppercase tracking-widest" style={{ color: "#8fa5b8" }}>Market Position</p>
+                      <p className="mb-2 text-[10px] font-bold uppercase tracking-widest" style={{ color: "#3d5570" }}>Market Position</p>
                       <div className="grid grid-cols-3 gap-3">
                         <BankKpi label="Market Share"       value={`${bankSnap.market_share.toFixed(2)}%`}        color="#7c3aed" sub="UAE CC market" />
                         <BankKpi label="NIM"                value={`${bankSnap.nim.toFixed(2)}%`}                 color="#2563eb" sub="Net interest margin" />
@@ -343,7 +343,7 @@ export default function MashreqPortfolioPage() {
 
                     {/* Capital row */}
                     <div>
-                      <p className="mb-2 text-[10px] font-bold uppercase tracking-widest" style={{ color: "#8fa5b8" }}>Capital Efficiency</p>
+                      <p className="mb-2 text-[10px] font-bold uppercase tracking-widest" style={{ color: "#3d5570" }}>Capital Efficiency</p>
                       <div className="grid grid-cols-4 gap-3">
                         <BankKpi label="RWA"                value={`AED ${bankSnap.rwa.toLocaleString("en-US")}M`} color="#4a6480" sub="Risk-weighted assets" />
                         <BankKpi label="RAROC"              value={`${bankSnap.raroc.toFixed(1)}%`}                color={bankSnap.raroc >= 18 ? "#059669" : "#e11d48"} sub="Risk-adj return" />
@@ -354,7 +354,7 @@ export default function MashreqPortfolioPage() {
 
                     {/* Budget row */}
                     <div>
-                      <p className="mb-2 text-[10px] font-bold uppercase tracking-widest" style={{ color: "#8fa5b8" }}>Budget vs Actual</p>
+                      <p className="mb-2 text-[10px] font-bold uppercase tracking-widest" style={{ color: "#3d5570" }}>Budget vs Actual</p>
                       <div className="grid grid-cols-3 gap-3">
                         <BankKpi
                           label="NTB Attainment"
@@ -374,7 +374,7 @@ export default function MashreqPortfolioPage() {
 
                     {/* Customer row */}
                     <div>
-                      <p className="mb-2 text-[10px] font-bold uppercase tracking-widest" style={{ color: "#8fa5b8" }}>Customer Intelligence</p>
+                      <p className="mb-2 text-[10px] font-bold uppercase tracking-widest" style={{ color: "#3d5570" }}>Customer Intelligence</p>
                       <div className="grid grid-cols-3 gap-3">
                         <BankKpi label="NPS"                value={bankSnap.nps >= 0 ? `+${bankSnap.nps.toFixed(0)}` : `${bankSnap.nps.toFixed(0)}`} color={bankSnap.nps >= 30 ? "#059669" : bankSnap.nps >= 0 ? "#d97706" : "#e11d48"} sub="Net Promoter Score" />
                         <BankKpi label="Avg Bureau Score"   value={bankSnap.avg_bureau_score.toFixed(0)}           color="#2563eb" sub="Portfolio avg" />
@@ -383,7 +383,7 @@ export default function MashreqPortfolioPage() {
                     </div>
                   </div>
                 ) : (
-                  <p className="py-6 text-center text-sm" style={{ color: "#8fa5b8" }}>
+                  <p className="py-6 text-center text-sm" style={{ color: "#3d5570" }}>
                     No bank snapshot saved yet. Fill in the form and click "Save bank snapshot".
                   </p>
                 )}
@@ -473,7 +473,7 @@ export default function MashreqPortfolioPage() {
                   </BSection>
 
                   <BSection label="Product Design">
-                    <p className="mb-2 text-xs" style={{ color: "#8fa5b8" }}>Pre-filled from card catalogue. Adjust if needed.</p>
+                    <p className="mb-2 text-xs" style={{ color: "#3d5570" }}>Pre-filled from card catalogue. Adjust if needed.</p>
                     <div className="grid grid-cols-3 gap-3">
                       <NumInput label="Annual Fee (AED)"  value={cardForm.annual_fee}  onChange={(v) => setCardForm((f) => ({ ...f, annual_fee: v }))} />
                       <PctInput label="Reward Rate %"     hint="Cashback / miles" value={cardForm.reward_rate} onChange={(v) => setCardForm((f) => ({ ...f, reward_rate: v }))} />
@@ -589,7 +589,7 @@ export default function MashreqPortfolioPage() {
                       })}
                       {records.length === 0 && (
                         <tr>
-                          <td colSpan={9} className="py-10 text-center text-sm" style={{ color: "#8fa5b8" }}>
+                          <td colSpan={9} className="py-10 text-center text-sm" style={{ color: "#3d5570" }}>
                             {cardLoading ? "Loading portfolio…" : "No card records yet. Add your first snapshot above."}
                           </td>
                         </tr>
@@ -628,7 +628,7 @@ function SectionDivider({ label }: { label: string }) {
   return (
     <div className="flex items-center gap-3">
       <div className="h-px flex-1" style={{ background: "#d1dde9" }} />
-      <span className="text-[11px] font-bold uppercase tracking-[0.2em] whitespace-nowrap" style={{ color: "#8fa5b8" }}>
+      <span className="text-[11px] font-bold uppercase tracking-[0.2em] whitespace-nowrap" style={{ color: "#3d5570" }}>
         {label}
       </span>
       <div className="h-px flex-1" style={{ background: "#d1dde9" }} />
@@ -650,7 +650,7 @@ function BSection({ label, children }: { label: string; children: React.ReactNod
 
 function FieldLabel({ text }: { text: string }) {
   return (
-    <span className="mb-1.5 block text-xs font-bold uppercase tracking-[0.14em]" style={{ color: "#8fa5b8" }}>
+    <span className="mb-1.5 block text-xs font-bold uppercase tracking-[0.14em]" style={{ color: "#3d5570" }}>
       {text}
     </span>
   );
@@ -661,7 +661,7 @@ function NumInput({ label, value, onChange, hint }: {
 }) {
   return (
     <label className="block">
-      <span className="mb-1.5 block text-xs font-bold uppercase tracking-[0.14em]" style={{ color: "#8fa5b8" }}>
+      <span className="mb-1.5 block text-xs font-bold uppercase tracking-[0.14em]" style={{ color: "#3d5570" }}>
         {label}{hint && <span className="ml-1 normal-case font-normal tracking-normal" style={{ color: "#b8cce0" }}>({hint})</span>}
       </span>
       <input type="number" min={0} value={Number.isNaN(value) ? "" : value}
@@ -676,7 +676,7 @@ function PctInput({ label, value, onChange, hint }: {
 }) {
   return (
     <label className="block">
-      <span className="mb-1.5 block text-xs font-bold uppercase tracking-[0.14em]" style={{ color: "#8fa5b8" }}>
+      <span className="mb-1.5 block text-xs font-bold uppercase tracking-[0.14em]" style={{ color: "#3d5570" }}>
         {label}{hint && <span className="ml-1 normal-case font-normal tracking-normal" style={{ color: "#b8cce0" }}>({hint})</span>}
       </span>
       <input type="number" min={0} max={100} step={0.01}
@@ -693,7 +693,7 @@ function SelectField({ label, value, onChange, options }: {
 }) {
   return (
     <label className="block">
-      <span className="mb-1.5 block text-xs font-bold uppercase tracking-[0.14em]" style={{ color: "#8fa5b8" }}>{label}</span>
+      <span className="mb-1.5 block text-xs font-bold uppercase tracking-[0.14em]" style={{ color: "#3d5570" }}>{label}</span>
       <select value={value} onChange={(e) => onChange(e.target.value)} className="input-dark">
         {options.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
       </select>
@@ -704,9 +704,9 @@ function SelectField({ label, value, onChange, options }: {
 function BankKpi({ label, value, color, sub }: { label: string; value: string; color: string; sub?: string }) {
   return (
     <div className="rounded-xl px-3 py-3" style={{ background: `${color}0d`, border: `1px solid ${color}22` }}>
-      <p className="text-[10px] font-bold uppercase tracking-[0.12em]" style={{ color: "#8fa5b8" }}>{label}</p>
+      <p className="text-[10px] font-bold uppercase tracking-[0.12em]" style={{ color: "#3d5570" }}>{label}</p>
       <p className="mt-1 text-base font-bold tabular-nums leading-tight" style={{ color }}>{value}</p>
-      {sub && <p className="mt-0.5 text-[10px]" style={{ color: "#8fa5b8" }}>{sub}</p>}
+      {sub && <p className="mt-0.5 text-[10px]" style={{ color: "#3d5570" }}>{sub}</p>}
     </div>
   );
 }
@@ -714,7 +714,7 @@ function BankKpi({ label, value, color, sub }: { label: string; value: string; c
 function KpiTile({ label, value, color }: { label: string; value: string; color: string }) {
   return (
     <div className="rounded-xl px-4 py-3" style={{ background: `${color}10`, border: `1px solid ${color}28` }}>
-      <p className="text-xs font-bold uppercase tracking-[0.14em]" style={{ color: "#8fa5b8" }}>{label}</p>
+      <p className="text-xs font-bold uppercase tracking-[0.14em]" style={{ color: "#3d5570" }}>{label}</p>
       <p className="mt-1 text-lg font-bold tabular-nums leading-tight" style={{ color }}>{value}</p>
     </div>
   );
@@ -727,7 +727,7 @@ function DetailCard({ r }: { r: PortfolioCard }) {
     <div className="rounded-xl px-4 py-3" style={{ background: "#f8fafc", border: "1px solid #d1dde9" }}>
       <div className="mb-3 flex items-center justify-between">
         <p className="text-sm font-semibold" style={{ color: "#1e2d3d" }}>{r.card_name}</p>
-        <p className="text-xs" style={{ color: "#8fa5b8" }}>
+        <p className="text-xs" style={{ color: "#3d5570" }}>
           {r.timestamp ? new Date(r.timestamp).toLocaleDateString("en-AE", { month: "short", year: "numeric" }) : "—"}
         </p>
       </div>
@@ -756,7 +756,7 @@ function DetailCard({ r }: { r: PortfolioCard }) {
 function Stat({ label, value, color = "#4a6480" }: { label: string; value: string; color?: string }) {
   return (
     <div>
-      <p className="mb-0.5 text-[10px] uppercase tracking-wide font-semibold" style={{ color: "#8fa5b8" }}>{label}</p>
+      <p className="mb-0.5 text-[10px] uppercase tracking-wide font-semibold" style={{ color: "#3d5570" }}>{label}</p>
       <p className="font-semibold tabular-nums text-xs" style={{ color }}>{value}</p>
     </div>
   );

@@ -281,7 +281,7 @@ export default function CardIntelligenceTable() {
         )}
 
         {/* Result count — right-aligned */}
-        <p className="ml-auto hidden shrink-0 text-[11px] sm:block" style={{ color: "#8fa5b8" }}>
+        <p className="ml-auto hidden shrink-0 text-[11px] sm:block" style={{ color: "#3d5570" }}>
           {filtered.length} of {cards.length} cards
         </p>
       </div>
@@ -305,7 +305,7 @@ export default function CardIntelligenceTable() {
                       {header.column.getIsSorted() === "asc"  && <span style={{ color: "#2563eb" }}>↑</span>}
                       {header.column.getIsSorted() === "desc" && <span style={{ color: "#2563eb" }}>↓</span>}
                       {!header.column.getIsSorted() && header.column.getCanSort() && (
-                        <span style={{ color: "#d1dde9" }}>↕</span>
+                        <span style={{ color: "#8fa5b8" }}>↕</span>
                       )}
                     </span>
                   </th>
@@ -326,7 +326,7 @@ export default function CardIntelligenceTable() {
 
             {table.getRowModel().rows.length === 0 && (
               <tr>
-                <td colSpan={columns.length} className="py-8 text-center text-xs" style={{ color: "#8fa5b8" }}>
+                <td colSpan={columns.length} className="py-8 text-center text-xs" style={{ color: "#3d5570" }}>
                   {loading ? "Scanning market data…" : "No cards match the current filters."}
                 </td>
               </tr>

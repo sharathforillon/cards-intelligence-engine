@@ -227,8 +227,8 @@ export default function PortfolioEconomics() {
                         style={{ accentColor: accentHex, cursor: "pointer" }}
                       />
                       <div className="mt-0.5 flex justify-between">
-                        <span className="text-[9px]" style={{ color: "#7a95ab" }}>{s.fmt(s.min)}</span>
-                        <span className="text-[9px]" style={{ color: "#7a95ab" }}>{s.fmt(s.max)}</span>
+                        <span className="text-[9px]" style={{ color: "#4a6480" }}>{s.fmt(s.min)}</span>
+                        <span className="text-[9px]" style={{ color: "#4a6480" }}>{s.fmt(s.max)}</span>
                       </div>
                     </div>
                   );

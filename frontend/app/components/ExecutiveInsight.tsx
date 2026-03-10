@@ -84,7 +84,7 @@ export default function ExecutiveInsight() {
         {/* Memo body */}
         <div className="space-y-4 text-xs">
           <section>
-            <SectionLabel color="#8fa5b8" label="Headline recommendation" />
+            <SectionLabel color="#3d5570" label="Headline recommendation" />
             <p
               className="mt-2 leading-relaxed"
               style={{ color: "#2d4a62" }}
@@ -97,7 +97,7 @@ export default function ExecutiveInsight() {
           <Divider />
 
           <section>
-            <SectionLabel color="#8fa5b8" label="Supporting arguments" />
+            <SectionLabel color="#3d5570" label="Supporting arguments" />
             <BulletList
               items={[
                 "Portfolio CLV and RAROC remain resilient around internal hurdle rates, with scope to reprice sub-scale cards.",
@@ -110,7 +110,7 @@ export default function ExecutiveInsight() {
           <Divider />
 
           <section>
-            <SectionLabel color="#8fa5b8" label="Risk analysis" />
+            <SectionLabel color="#3d5570" label="Risk analysis" />
             <BulletList
               items={[
                 "Margin compression risk if cashback is raised without corresponding fee and utilisation uplifts.",

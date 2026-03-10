@@ -175,7 +175,7 @@ export default function BattlefieldChart() {
               name="Annual Fee"
               type="number"
               domain={[0, "auto"]}
-              tick={{ fontSize: 10, fill: "#8fa5b8" }}
+              tick={{ fontSize: 10, fill: "#3d5570" }}
               tickLine={false}
               axisLine={{ stroke: "#d1dde9" }}
               tickFormatter={(v) => `AED ${v}`}
@@ -184,7 +184,7 @@ export default function BattlefieldChart() {
                 position: "insideBottom",
                 offset: -18,
                 fontSize: 10,
-                fill: "#8fa5b8",
+                fill: "#3d5570",
               }}
             />
             <YAxis
@@ -192,7 +192,7 @@ export default function BattlefieldChart() {
               name="Reward Yield"
               type="number"
               domain={[0, yMax]}
-              tick={{ fontSize: 10, fill: "#8fa5b8" }}
+              tick={{ fontSize: 10, fill: "#3d5570" }}
               tickLine={false}
               axisLine={{ stroke: "#d1dde9" }}
               tickFormatter={(v) => `${(v * 100).toFixed(1)}%`}
@@ -295,7 +295,7 @@ export default function BattlefieldChart() {
         </div>
       )}
 
-      <p className="mt-2 text-xs" style={{ color: "#8fa5b8" }}>
+      <p className="mt-2 text-xs" style={{ color: "#3d5570" }}>
         <span style={{ color: "#2563eb", fontWeight: 600 }}>Mashreq</span> cards are
         labelled. Hover any dot for full details. Space above the{" "}
         <span style={{ color: "#059669" }}>frontier</span> = premium pricing opportunity.
