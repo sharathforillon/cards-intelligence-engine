@@ -45,7 +45,7 @@ export default function Panel({
           {title && (
             <h2
               className="font-heading text-[10px] font-bold uppercase tracking-[0.18em]"
-              style={{ color: "#8fa5b8" }}
+              style={{ color: "#2d4259" }}
             >
               {title}
             </h2>

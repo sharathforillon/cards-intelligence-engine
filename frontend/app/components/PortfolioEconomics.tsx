@@ -209,7 +209,7 @@ export default function PortfolioEconomics() {
                   return (
                     <div key={s.key}>
                       <div className="mb-1.5 flex items-center justify-between">
-                        <span className="text-[11px] font-semibold uppercase tracking-[0.12em]" style={{ color: "#8fa5b8" }}>
+                        <span className="text-[11px] font-semibold uppercase tracking-[0.12em]" style={{ color: "#2d4259" }}>
                           {s.label}
                         </span>
                         <span className="text-[11px] font-bold tabular-nums" style={{ color: accentHex }}>
@@ -227,8 +227,8 @@ export default function PortfolioEconomics() {
                         style={{ accentColor: accentHex, cursor: "pointer" }}
                       />
                       <div className="mt-0.5 flex justify-between">
-                        <span className="text-[9px]" style={{ color: "#c8d8ec" }}>{s.fmt(s.min)}</span>
-                        <span className="text-[9px]" style={{ color: "#c8d8ec" }}>{s.fmt(s.max)}</span>
+                        <span className="text-[9px]" style={{ color: "#7a95ab" }}>{s.fmt(s.min)}</span>
+                        <span className="text-[9px]" style={{ color: "#7a95ab" }}>{s.fmt(s.max)}</span>
                       </div>
                     </div>
                   );
@@ -306,13 +306,13 @@ export default function PortfolioEconomics() {
                 />
                 <XAxis
                   dataKey="name"
-                  tick={{ fontSize: 9, fill: "#8fa5b8" }}
+                  tick={{ fontSize: 9, fill: "#4a6480" }}
                   tickLine={false}
                   axisLine={{ stroke: "#d1dde9" }}
                 />
                 <YAxis
                   tickFormatter={(v) => `${fmtA(v)}`}
-                  tick={{ fontSize: 9, fill: "#8fa5b8" }}
+                  tick={{ fontSize: 9, fill: "#4a6480" }}
                   tickLine={false}
                   axisLine={false}
                   domain={[ec.yMin, ec.yMax]}
@@ -357,12 +357,12 @@ export default function PortfolioEconomics() {
             ].map(({ color, label }) => (
               <div key={label} className="flex items-center gap-1">
                 <span className="inline-block h-2 w-2 rounded-sm flex-shrink-0" style={{ background: color }} />
-                <span className="text-[10px]" style={{ color: "#8fa5b8" }}>{label}</span>
+                <span className="text-[10px] font-medium" style={{ color: "#3d5570" }}>{label}</span>
               </div>
             ))}
           </div>
 
-          <p className="mt-2 text-[10px]" style={{ color: "#8fa5b8" }}>
+          <p className="mt-2 text-[10px]" style={{ color: "#4a6480" }}>
             All figures are annualised. Interest income at 24% p.a. on revolving balance.
             FX income assumes 25% of spend is foreign-currency. Acquisition cost amortised over 3 years.
             Capital = 12% × (active cards × 3× monthly spend).
@@ -385,7 +385,7 @@ function EcoKpi({
       className="rounded-xl px-4 py-3"
       style={{ background: `${color}0e`, border: `1px solid ${color}26` }}
     >
-      <p className="text-[10px] font-bold uppercase tracking-[0.13em]" style={{ color: "#8fa5b8" }}>
+      <p className="text-[10px] font-bold uppercase tracking-[0.13em]" style={{ color: "#3d5570" }}>
         {label}
       </p>
       <p
@@ -394,7 +394,7 @@ function EcoKpi({
       >
         {value}
       </p>
-      <p className="mt-0.5 text-[10px]" style={{ color: "#8fa5b8" }}>{sub}</p>
+      <p className="mt-0.5 text-[10px] font-medium" style={{ color: "#4a6480" }}>{sub}</p>
     </div>
   );
 }
@@ -408,7 +408,7 @@ function RevLine({
   return (
     <div>
       <div className="mb-1 flex items-center justify-between">
-        <span className="text-xs font-medium" style={{ color: "#4a6480" }}>{label}</span>
+        <span className="text-xs font-semibold" style={{ color: "#1e2d3d" }}>{label}</span>
         <span className="text-xs font-semibold tabular-nums" style={{ color }}>
           AED {fmtA(value)}
         </span>
@@ -444,7 +444,7 @@ function WaterfallTooltip({ active, payload }: any) {
       <p className="text-sm font-bold tabular-nums" style={{ color: d.fill }}>
         {isCost ? "−" : "+"} AED {fmtA(Math.abs(d.display ?? d.value))}
       </p>
-      <p className="mt-0.5 text-[10px]" style={{ color: "#8fa5b8" }}>
+      <p className="mt-0.5 text-[10px] font-medium" style={{ color: "#4a6480" }}>
         {d.category === "revenue"
           ? "Revenue contribution"
           : d.category === "cost"
