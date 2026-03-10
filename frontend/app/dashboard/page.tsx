@@ -212,7 +212,172 @@ export default function Dashboard() {
             <StrategyLeaderboard />
           </div>
         </section>
+
+        {/* ── SECTION 3: Segment summary + AI quick-chat ── */}
+        <section className="grid gap-5 lg:grid-cols-12">
+          <div className="lg:col-span-5">
+            <SegmentSummaryWidget />
+          </div>
+          <div className="lg:col-span-7">
+            <AIAdvisorWidget />
+          </div>
+        </section>
       </div>
+    </div>
+  );
+}
+
+/* ── Segment Summary Widget ──────────────────────────────── */
+
+function SegmentSummaryWidget() {
+  const [segments, setSegments] = useState<{
+    label: string; tier: string; tier_badge_color: string; tier_color: string;
+    profit_per_customer: number; cards_issued: number; rank: number;
+  }[]>([]);
+
+  useEffect(() => {
+    fetch("http://localhost:8000/segments/profitability")
+      .then((r) => r.json())
+      .then((data) => setSegments(data.slice(0, 3)))
+      .catch(console.error);
+  }, []);
+
+  return (
+    <div
+      className="panel"
+      style={{ borderTop: "2px solid #7c3aed" }}
+    >
+      <div className="mb-3 flex items-center justify-between">
+        <h2 className="font-heading text-[10px] font-bold uppercase tracking-[0.18em]" style={{ color: "#2d4259" }}>
+          Top Segments by Profit
+        </h2>
+        <a href="/segments" className="text-[10px] font-semibold" style={{ color: "#2563eb" }}>
+          View All →
+        </a>
+      </div>
+      <div className="space-y-2">
+        {segments.map((seg) => (
+          <div
+            key={seg.rank}
+            className="flex items-center justify-between rounded-xl px-3 py-2.5"
+            style={{ background: "#f8fafc", border: "1px solid #d1dde9" }}
+          >
+            <div className="flex items-center gap-2">
+              <span
+                className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[10px] font-bold text-white"
+                style={{ background: seg.tier_color }}
+              >
+                {seg.rank}
+              </span>
+              <div>
+                <p className="text-xs font-bold" style={{ color: "#1e2d3d" }}>{seg.label}</p>
+                <span
+                  className="rounded-full px-1.5 py-0.5 text-[9px] font-bold text-white"
+                  style={{ background: seg.tier_badge_color }}
+                >
+                  {seg.tier}
+                </span>
+              </div>
+            </div>
+            <div className="text-right">
+              <p className="text-xs font-bold tabular-nums" style={{ color: "#2563eb" }}>
+                AED {seg.profit_per_customer.toFixed(0)}/mo
+              </p>
+              <p className="text-[10px]" style={{ color: "#4a6480" }}>
+                {seg.cards_issued.toLocaleString("en-US")} cards
+              </p>
+            </div>
+          </div>
+        ))}
+        {segments.length === 0 && (
+          <p className="py-4 text-center text-xs" style={{ color: "#3d5570" }}>Loading segments…</p>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/* ── AI Advisor Widget ───────────────────────────────────── */
+
+function AIAdvisorWidget() {
+  const [query, setQuery] = useState("");
+  const [response, setResponse] = useState<{
+    recommended_action?: string;
+    rationale?: string;
+    profit_impact_aed?: number;
+    confidence?: number;
+  } | null>(null);
+  const [loading, setLoading] = useState(false);
+
+  async function ask() {
+    if (!query.trim()) return;
+    setLoading(true);
+    setResponse(null);
+    try {
+      const data = await fetch("http://localhost:8000/advisor/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ query }),
+      }).then((r) => r.json());
+      setResponse(data);
+    } catch {
+      setResponse({ recommended_action: "AI advisor unavailable." });
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <div className="panel" style={{ borderTop: "2px solid #2563eb" }}>
+      <div className="mb-3 flex items-center justify-between">
+        <h2 className="font-heading text-[10px] font-bold uppercase tracking-[0.18em]" style={{ color: "#2d4259" }}>
+          AI Strategy Quick Question
+        </h2>
+        <a href="/advisor" className="text-[10px] font-semibold" style={{ color: "#2563eb" }}>
+          Full Advisor →
+        </a>
+      </div>
+      <div className="flex gap-2">
+        <input
+          className="input-dark flex-1 text-xs"
+          placeholder="e.g. Which segment has the highest churn risk?"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          onKeyDown={(e) => e.key === "Enter" && ask()}
+          disabled={loading}
+        />
+        <button className="btn-primary" onClick={ask} disabled={loading || !query.trim()}>
+          {loading ? "…" : "Ask"}
+        </button>
+      </div>
+      {response && (
+        <div className="mt-3 rounded-xl p-3" style={{ background: "#f8fafc", border: "1px solid #d1dde9" }}>
+          {response.recommended_action && (
+            <div
+              className="mb-2 rounded-lg px-3 py-2"
+              style={{ background: "rgba(217,119,6,0.08)", border: "1px solid rgba(217,119,6,0.22)" }}
+            >
+              <p className="text-[10px] font-bold uppercase tracking-[0.1em]" style={{ color: "#d97706" }}>
+                Recommended Action
+              </p>
+              <p className="mt-0.5 text-xs font-semibold" style={{ color: "#1e2d3d" }}>
+                {response.recommended_action}
+              </p>
+            </div>
+          )}
+          {response.rationale && (
+            <p className="text-xs leading-relaxed" style={{ color: "#2d4a62" }}>
+              {response.rationale}
+            </p>
+          )}
+          {response.profit_impact_aed !== undefined && (
+            <p className="mt-2 text-[10px] font-semibold" style={{ color: "#059669" }}>
+              Estimated profit impact: AED {(response.profit_impact_aed / 1e6).toFixed(1)}M/yr
+              {response.confidence !== undefined && ` · ${Math.round(response.confidence * 100)}% confidence`}
+            </p>
+          )}
+        </div>
+      )}
     </div>
   );
 }

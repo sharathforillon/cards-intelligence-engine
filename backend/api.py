@@ -12,6 +12,13 @@ from backend.competitor_intelligence import CompetitorIntelligence
 from backend.strategy_engine import StrategyEngine
 from backend.profitability_simulator import ProfitabilitySimulator
 
+from backend.segment_intelligence_engine import SegmentIntelligenceEngine
+from backend.spend_category_engine import SpendCategoryEngine
+from backend.acquisition_funnel_engine import AcquisitionFunnelEngine
+from backend.cannibalization_engine import CannibalizationEngine
+from backend.ai_advisor import AIAdvisor
+from backend.executive_report_engine import ExecutiveReportEngine
+
 from backend.models import CompetitorCard
 from backend.models_portfolio import MashreqCardPerformance, BankPortfolioSnapshot
 
@@ -73,6 +80,29 @@ class StrategyInput(BaseModel):
 
 
 class QueryInput(BaseModel):
+    query: str
+
+
+class ProductLaunchInput(BaseModel):
+    card_name: str | None = "New Card"
+    annual_fee: int = 200
+    reward_rate: float = 0.025
+    category_rewards: dict | None = None  # e.g. {"dining": 0.05, "grocery": 0.03}
+    fx_markup: float | None = 0.0
+    benefits_strength: float | None = 0.65
+    target_segment: str | None = None
+    min_salary: int | None = None
+
+
+class CannibalizationInput(BaseModel):
+    reward_rate: float
+    annual_fee: int = 200
+    features_strength: float = 0.65
+    target_segment: str | None = None
+    category_rewards: dict | None = None
+
+
+class AdvisorChatInput(BaseModel):
     query: str
 
 
@@ -450,3 +480,161 @@ def get_bank_history(db: Session = Depends(get_db)):
         }
         for r in records
     ]
+
+
+# ============================================================
+# SEGMENT INTELLIGENCE
+# ============================================================
+
+@app.get("/segments/profitability")
+def segments_profitability(db: Session = Depends(get_db)):
+    engine = SegmentIntelligenceEngine(db, config)
+    return engine.rank_segments_by_profit()
+
+
+@app.get("/segments/churn-risk")
+def segments_churn_risk(db: Session = Depends(get_db)):
+    engine = SegmentIntelligenceEngine(db, config)
+    return engine.compute_churn_risk()
+
+
+@app.get("/segments/growth-opportunities")
+def segments_growth_opportunities(db: Session = Depends(get_db)):
+    engine = SegmentIntelligenceEngine(db, config)
+    return engine.compute_growth_opportunities()
+
+
+# ============================================================
+# SPEND CATEGORY INTELLIGENCE
+# ============================================================
+
+@app.get("/categories/metrics")
+def categories_metrics(db: Session = Depends(get_db)):
+    engine = SpendCategoryEngine(db)
+    return engine.compute_category_metrics()
+
+
+@app.get("/categories/underperforming")
+def categories_underperforming(db: Session = Depends(get_db)):
+    engine = SpendCategoryEngine(db)
+    return engine.find_underperforming_categories()
+
+
+# ============================================================
+# ACQUISITION FUNNEL
+# ============================================================
+
+@app.get("/funnel/metrics")
+def funnel_metrics(db: Session = Depends(get_db)):
+    engine = AcquisitionFunnelEngine(db, config)
+    return engine.compute_funnel_metrics()
+
+
+@app.get("/funnel/channel-cac")
+def funnel_channel_cac(db: Session = Depends(get_db)):
+    engine = AcquisitionFunnelEngine(db, config)
+    return engine.compute_channel_cac()
+
+
+@app.get("/funnel/efficiency")
+def funnel_efficiency(db: Session = Depends(get_db)):
+    engine = AcquisitionFunnelEngine(db, config)
+    return engine.compute_acquisition_efficiency()
+
+
+# ============================================================
+# PRODUCT LAUNCH SIMULATOR
+# ============================================================
+
+# Spend shares used to compute effective reward rate from category dict
+_SPEND_SHARES = {
+    "dining": 0.18, "grocery": 0.22, "travel": 0.15,
+    "online": 0.20, "fuel": 0.08, "luxury_retail": 0.07,
+}
+
+
+def _effective_reward_rate(base_rate: float, category_rewards: dict | None) -> float:
+    if not category_rewards:
+        return base_rate
+    weighted = sum(
+        _SPEND_SHARES.get(cat, 0) * rate
+        for cat, rate in category_rewards.items()
+    )
+    covered = sum(_SPEND_SHARES.get(cat, 0) for cat in category_rewards)
+    return weighted + base_rate * max(0, 1 - covered)
+
+
+@app.post("/simulate/product-launch")
+def simulate_product_launch(input: ProductLaunchInput, db: Session = Depends(get_db)):
+    effective_rr = _effective_reward_rate(
+        input.reward_rate, input.category_rewards
+    )
+
+    orchestrator = StrategyOrchestrator(db, config)
+    strategy_result = orchestrator.evaluate_strategy({
+        "card_name": input.card_name,
+        "reward_rate": effective_rr,
+        "annual_fee": input.annual_fee,
+        "features": input.benefits_strength or 0.65,
+    })
+
+    # Cannibalization sub-simulation
+    cann_engine = CannibalizationEngine(db, config)
+    cann_params = {
+        "reward_rate": effective_rr,
+        "annual_fee": input.annual_fee,
+        "features_strength": input.benefits_strength or 0.65,
+        "target_segment": input.target_segment,
+        "category_rewards": input.category_rewards or {},
+    }
+    cann_result = cann_engine.simulate_cannibalization(cann_params)
+
+    return {
+        "card_name": input.card_name,
+        "effective_reward_rate": round(effective_rr, 4),
+        "strategy": strategy_result,
+        "cannibalization": cann_result,
+    }
+
+
+# ============================================================
+# CANNIBALIZATION ENGINE
+# ============================================================
+
+@app.post("/cannibalization/simulate")
+def cannibalization_simulate(input: CannibalizationInput, db: Session = Depends(get_db)):
+    engine = CannibalizationEngine(db, config)
+    params = {
+        "reward_rate": input.reward_rate,
+        "annual_fee": input.annual_fee,
+        "features_strength": input.features_strength,
+        "target_segment": input.target_segment,
+        "category_rewards": input.category_rewards or {},
+    }
+    return engine.simulate_cannibalization(params)
+
+
+# ============================================================
+# AI STRATEGY ADVISOR
+# ============================================================
+
+@app.get("/advisor/suggested-prompts")
+def advisor_suggested_prompts(db: Session = Depends(get_db)):
+    advisor = AIAdvisor(db, config)
+    return advisor.get_suggested_prompts()
+
+
+@app.post("/advisor/chat")
+def advisor_chat(input: AdvisorChatInput, db: Session = Depends(get_db)):
+    advisor = AIAdvisor(db, config)
+    return advisor.chat(input.query)
+
+
+# ============================================================
+# EXECUTIVE STRATEGY OUTPUT
+# ============================================================
+
+@app.get("/executive/quarterly-memo")
+def executive_quarterly_memo(db: Session = Depends(get_db)):
+    engine = ExecutiveReportEngine(db, config)
+    return engine.generate_quarterly_memo()

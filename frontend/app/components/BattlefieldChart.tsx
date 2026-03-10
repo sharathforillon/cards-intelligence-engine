@@ -101,7 +101,47 @@ function RegularDot(props: {
   );
 }
 
-export default function BattlefieldChart() {
+// Diamond dot for simulated new card
+function SimulatedDot(props: {
+  cx?: number; cy?: number; label?: string;
+}) {
+  const { cx = 0, cy = 0, label = "NEW" } = props;
+  const size = 9;
+  const pts = [
+    `${cx},${cy - size}`,
+    `${cx + size},${cy}`,
+    `${cx},${cy + size}`,
+    `${cx - size},${cy}`,
+  ].join(" ");
+  return (
+    <g>
+      <polygon points={pts} fill="#d97706" fillOpacity={0.9} stroke="#ffffff" strokeWidth={1.5} />
+      <text
+        x={cx}
+        y={cy - size - 5}
+        textAnchor="middle"
+        fontSize={9}
+        fontWeight="800"
+        fill="#d97706"
+        style={{ pointerEvents: "none", userSelect: "none" }}
+      >
+        {label}
+      </text>
+    </g>
+  );
+}
+
+export type SimulatedCardProp = {
+  annual_fee: number;
+  cashback_rate: number;
+  label: string;
+};
+
+export default function BattlefieldChart({
+  simulatedCard,
+}: {
+  simulatedCard?: SimulatedCardProp;
+}) {
   const [cards, setCards] = useState<CardPoint[]>([]);
   const [loading, setLoading] = useState(false);
 
@@ -128,10 +168,12 @@ export default function BattlefieldChart() {
 
   // Y-axis domain: 0 → max reward rate + 20% headroom, capped at 8%
   const yMax = useMemo(() => {
-    if (!points.length) return 0.06;
-    const max = Math.max(...points.map((p) => p.cashback_rate ?? 0));
+    const allRates = points.map((p) => p.cashback_rate ?? 0);
+    if (simulatedCard) allRates.push(simulatedCard.cashback_rate);
+    if (!allRates.length) return 0.06;
+    const max = Math.max(...allRates);
     return Math.min(Math.ceil(max * 100 * 1.2) / 100, 0.08);
-  }, [points]);
+  }, [points, simulatedCard]);
 
   // Group into per-bank series
   const byBank = useMemo(() => {
@@ -210,12 +252,13 @@ export default function BattlefieldChart() {
                 padding: "8px 12px",
               }}
               labelStyle={{ color: "#4a6480", fontWeight: 600, marginBottom: "6px" }}
-              formatter={(value: unknown, name: string) => {
-                if (name === "cashback_rate")
+              formatter={(value: unknown, name: unknown) => {
+                const nameStr = String(name ?? "");
+                if (nameStr === "cashback_rate")
                   return [`${((value as number) * 100).toFixed(1)}%`, "Reward rate"];
-                if (name === "annual_fee")
+                if (nameStr === "annual_fee")
                   return [`AED ${value}`, "Annual fee"];
-                return [String(value), name];
+                return [String(value), nameStr];
               }}
               labelFormatter={(_, payload) =>
                 payload?.[0]
@@ -242,6 +285,17 @@ export default function BattlefieldChart() {
                   />
                 );
               })}
+
+            {/* Simulated new card */}
+            {simulatedCard && (
+              <Scatter
+                name={simulatedCard.label}
+                data={[{ annual_fee: simulatedCard.annual_fee, cashback_rate: simulatedCard.cashback_rate, bank: "Simulated", card_name: simulatedCard.label }]}
+                fill="#d97706"
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                shape={(props: any) => <SimulatedDot cx={props.cx} cy={props.cy} label={simulatedCard.label.slice(0, 8)} />}
+              />
+            )}
 
             {/* Efficient frontier */}
             {frontier.length > 0 && (
@@ -283,6 +337,16 @@ export default function BattlefieldChart() {
               </span>
             </div>
           ))}
+          {simulatedCard && (
+            <div className="flex items-center gap-1.5">
+              <svg width="12" height="12" viewBox="-6 -6 12 12">
+                <polygon points="0,-5 5,0 0,5 -5,0" fill="#d97706" />
+              </svg>
+              <span className="text-[10px] font-bold" style={{ color: "#d97706" }}>
+                {simulatedCard.label} (simulated)
+              </span>
+            </div>
+          )}
           <div className="ml-auto flex items-center gap-1.5">
             <svg width="20" height="6" className="flex-shrink-0">
               <line x1="0" y1="3" x2="20" y2="3"
