@@ -44,8 +44,8 @@ export default function Panel({
         <div className="mb-4 flex items-center justify-between gap-3">
           {title && (
             <h2
-              className="font-heading text-[10px] font-bold uppercase tracking-[0.18em]"
-              style={{ color: "#2d4259" }}
+              className="font-heading text-[12px] font-bold uppercase tracking-[0.14em]"
+              style={{ color: "#0d1f2f" }}
             >
               {title}
             </h2>

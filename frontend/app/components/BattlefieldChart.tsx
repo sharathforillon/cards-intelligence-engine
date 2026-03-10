@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo } from "react";
+import { useCachedFetch } from "@/hooks/useCachedFetch";
 import {
   ScatterChart,
   Scatter,
@@ -10,7 +11,6 @@ import {
   ResponsiveContainer,
   Line,
   CartesianGrid,
-  ReferenceLine,
 } from "recharts";
 import Panel from "./Panel";
 
@@ -53,6 +53,112 @@ function shortLabel(name: string): string {
     .replace(/\s+Credit$/i, "")
     .trim()
     .slice(0, 12);
+}
+
+// Value score: how good is this card (reward vs fee)?
+// Higher cashback_rate and lower annual_fee = higher score
+function valueScore(p: CardPoint): number {
+  return (p.cashback_rate ?? 0) * 10000 - p.annual_fee * 0.1;
+}
+
+// ── Custom Tooltip ──────────────────────────────────────────────────────────
+function CustomTooltip({
+  active,
+  payload,
+  bankBestSet,
+  bankColorMap,
+}: {
+  active?: boolean;
+  payload?: { payload: CardPoint }[];
+  bankBestSet: Set<string>;
+  bankColorMap: Map<string, string>;
+}) {
+  if (!active || !payload?.length) return null;
+  const card = payload[0]?.payload;
+  if (!card) return null;
+
+  const isBest = bankBestSet.has(`${card.bank}::${card.card_name}`);
+  const color = bankColorMap.get(card.bank) ?? "#4a6480";
+  const rewardPct = ((card.cashback_rate ?? 0) * 100).toFixed(2).replace(/\.?0+$/, "") + "%";
+
+  return (
+    <div
+      style={{
+        backgroundColor: "#ffffff",
+        border: "1px solid #d1dde9",
+        borderRadius: "12px",
+        fontSize: "12px",
+        color: "#1e2d3d",
+        boxShadow: "0 4px 20px rgba(0,0,0,0.12)",
+        padding: "12px 14px",
+        minWidth: "210px",
+      }}
+    >
+      {/* Bank + card name header */}
+      <div style={{ marginBottom: 8 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 2 }}>
+          <span
+            style={{
+              display: "inline-block",
+              width: 8,
+              height: 8,
+              borderRadius: "50%",
+              background: color,
+              flexShrink: 0,
+            }}
+          />
+          <span style={{ fontWeight: 700, color, fontSize: 12 }}>{card.bank}</span>
+        </div>
+        <p style={{ color: "#1e2d3d", fontWeight: 600, fontSize: 12, paddingLeft: 14 }}>
+          {card.card_name}
+        </p>
+      </div>
+
+      {/* Divider */}
+      <div style={{ borderTop: "1px solid #e2eaf2", marginBottom: 8 }} />
+
+      {/* Metrics */}
+      <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", gap: 16 }}>
+          <span style={{ color: "#4a6480", fontSize: 11 }}>Annual Fee</span>
+          <span style={{ fontWeight: 700, color: "#1e2d3d", fontSize: 11 }}>
+            AED {card.annual_fee.toLocaleString("en-US")}
+          </span>
+        </div>
+        <div style={{ display: "flex", justifyContent: "space-between", gap: 16 }}>
+          <span style={{ color: "#4a6480", fontSize: 11 }}>Reward Rate</span>
+          <span style={{ fontWeight: 700, color: "#059669", fontSize: 11 }}>
+            {rewardPct}
+          </span>
+        </div>
+        <div style={{ display: "flex", justifyContent: "space-between", gap: 16 }}>
+          <span style={{ color: "#4a6480", fontSize: 11 }}>Value Score</span>
+          <span style={{ fontWeight: 700, color: "#7c3aed", fontSize: 11 }}>
+            {valueScore(card).toFixed(0)}
+          </span>
+        </div>
+      </div>
+
+      {/* Best-for-bank badge */}
+      {isBest && (
+        <div
+          style={{
+            marginTop: 10,
+            padding: "4px 8px",
+            background: "rgba(5,150,105,0.08)",
+            borderRadius: 7,
+            border: "1px solid rgba(5,150,105,0.22)",
+            fontSize: 10,
+            fontWeight: 700,
+            color: "#059669",
+            textAlign: "center",
+          }}
+        >
+          ⭐ Best value card at {card.bank}
+        </div>
+      )}
+    </div>
+  );
 }
 
 // Custom dot + label for Mashreq cards
@@ -142,37 +248,24 @@ export default function BattlefieldChart({
 }: {
   simulatedCard?: SimulatedCardProp;
 }) {
-  const [cards, setCards] = useState<CardPoint[]>([]);
-  const [loading, setLoading] = useState(false);
-
-  useEffect(() => {
-    async function loadCards() {
-      setLoading(true);
-      try {
-        const res = await fetch("http://localhost:8000/cards");
-        const data = await res.json();
-        setCards(data);
-      } catch (e) {
-        console.error("Failed to load cards", e);
-      } finally {
-        setLoading(false);
-      }
-    }
-    loadCards();
-  }, []);
+  const { data, loading } = useCachedFetch<CardPoint[]>(
+    "api:cards",
+    () => fetch("http://localhost:8000/cards").then((r) => r.json()),
+  );
+  const cards = data ?? [];
 
   const points = useMemo(
     () => cards.filter((c) => c.cashback_rate !== null && c.cashback_rate > 0),
     [cards]
   );
 
-  // Y-axis domain: 0 → max reward rate + 20% headroom, capped at 8%
+  // Y-axis domain: 0 → max reward rate + 20% headroom, capped at 10%
   const yMax = useMemo(() => {
     const allRates = points.map((p) => p.cashback_rate ?? 0);
     if (simulatedCard) allRates.push(simulatedCard.cashback_rate);
     if (!allRates.length) return 0.06;
     const max = Math.max(...allRates);
-    return Math.min(Math.ceil(max * 100 * 1.2) / 100, 0.08);
+    return Math.min(Math.ceil(max * 100 * 1.2) / 100, 0.10);
   }, [points, simulatedCard]);
 
   // Group into per-bank series
@@ -201,6 +294,30 @@ export default function BattlefieldChart({
     }
     return result;
   }, [points]);
+
+  // Best-value card per bank (highest value score = reward rate vs annual fee)
+  const bankBestSet = useMemo(() => {
+    const bestByBank = new Map<string, { card_name: string; score: number }>();
+    for (const p of points) {
+      const score = valueScore(p);
+      const current = bestByBank.get(p.bank);
+      if (!current || score > current.score) {
+        bestByBank.set(p.bank, { card_name: p.card_name, score });
+      }
+    }
+    const result = new Set<string>();
+    for (const [bank, best] of bestByBank) {
+      result.add(`${bank}::${best.card_name}`);
+    }
+    return result;
+  }, [points]);
+
+  // Color map for tooltip
+  const bankColorMap = useMemo(() => {
+    const map = new Map<string, string>();
+    byBank.forEach(([bank], idx) => map.set(bank, bankColor(bank, idx)));
+    return map;
+  }, [byBank]);
 
   return (
     <Panel title="Competitive Battlefield · Annual Fee vs. Reward Yield" accent="emerald">
@@ -242,29 +359,14 @@ export default function BattlefieldChart({
 
             <Tooltip
               cursor={{ stroke: "#b8cce0", strokeDasharray: "4 4" }}
-              contentStyle={{
-                backgroundColor: "#ffffff",
-                border: "1px solid #d1dde9",
-                borderRadius: "10px",
-                fontSize: "12px",
-                color: "#1e2d3d",
-                boxShadow: "0 4px 16px rgba(0,0,0,0.10)",
-                padding: "8px 12px",
-              }}
-              labelStyle={{ color: "#4a6480", fontWeight: 600, marginBottom: "6px" }}
-              formatter={(value: unknown, name: unknown) => {
-                const nameStr = String(name ?? "");
-                if (nameStr === "cashback_rate")
-                  return [`${((value as number) * 100).toFixed(1)}%`, "Reward rate"];
-                if (nameStr === "annual_fee")
-                  return [`AED ${value}`, "Annual fee"];
-                return [String(value), nameStr];
-              }}
-              labelFormatter={(_, payload) =>
-                payload?.[0]
-                  ? `${payload[0].payload.bank} · ${payload[0].payload.card_name}`
-                  : ""
-              }
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              content={(props: any) => (
+                <CustomTooltip
+                  {...props}
+                  bankBestSet={bankBestSet}
+                  bankColorMap={bankColorMap}
+                />
+              )}
             />
 
             {/* Mashreq rendered first so labels sit below other banks' dots */}
@@ -361,7 +463,9 @@ export default function BattlefieldChart({
 
       <p className="mt-2 text-xs" style={{ color: "#3d5570" }}>
         <span style={{ color: "#2563eb", fontWeight: 600 }}>Mashreq</span> cards are
-        labelled. Hover any dot for full details. Space above the{" "}
+        labelled. Hover any dot for bank, card name, reward rate &amp; value score.{" "}
+        <span style={{ color: "#059669" }}>⭐</span> marks the best-value card per bank.
+        Space above the{" "}
         <span style={{ color: "#059669" }}>frontier</span> = premium pricing opportunity.
         {loading && <span className="ml-1">Scanning…</span>}
       </p>

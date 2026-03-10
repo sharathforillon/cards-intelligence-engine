@@ -3,36 +3,36 @@
 @tailwind utilities;
 
 /* =========================================================
-   CARDS STRATEGY ENGINE — Design System v3
-   Clean, professional, soothing light theme
+   CARDS STRATEGY ENGINE — Design System v4
+   High-contrast, readable, professional
    ========================================================= */
 
 :root {
   /* Backgrounds */
-  --c-bg:       #f0f4f8;
+  --c-bg:       #edf1f7;
   --c-surface:  #ffffff;
-  --c-elevated: #f8fafc;
-  --c-input:    #f1f5f9;
+  --c-elevated: #f5f8fc;
+  --c-input:    #eef2f8;
 
   /* Borders */
-  --c-border:        #d1dde9;
-  --c-border-md:     #b8cce0;
-  --c-border-bright: rgba(37, 99, 235, 0.30);
+  --c-border:        #c4d2e1;
+  --c-border-md:     #a8bed4;
+  --c-border-bright: rgba(37, 99, 235, 0.35);
 
-  /* Text */
-  --c-text:       #1e2d3d;
-  --c-text-2:     #4a6480;
-  --c-text-muted: #3d5570;
+  /* Text — significantly darkened for readability */
+  --c-text:       #0d1f2f;   /* near-black navy */
+  --c-text-2:     #2a4560;   /* strong medium — was too light at #4a6480 */
+  --c-text-muted: #3a5270;   /* readable muted — was too light at #3d5570 */
 
   /* Accents */
-  --c-blue:          #2563eb;
+  --c-blue:          #1d56db;
   --c-blue-bright:   #3b82f6;
-  --c-emerald:       #059669;
-  --c-emerald-bright:#10b981;
-  --c-amber:         #d97706;
-  --c-rose:          #e11d48;
-  --c-violet:        #7c3aed;
-  --c-cyan:          #0284c7;
+  --c-emerald:       #047857;
+  --c-emerald-bright:#059669;
+  --c-amber:         #b45309;
+  --c-rose:          #be123c;
+  --c-violet:        #6d28d9;
+  --c-cyan:          #0369a1;
   --c-cyan-bright:   #0ea5e9;
 }
 
@@ -41,12 +41,15 @@
 html {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  font-size: 15px; /* up from browser default to scale everything */
 }
 
 body {
   font-family: var(--font-inter), system-ui, -apple-system, sans-serif;
   background-color: var(--c-bg);
   color: var(--c-text);
+  font-size: 14px;
+  line-height: 1.6;
 }
 
 .font-heading {
@@ -57,8 +60,8 @@ body {
 
 ::-webkit-scrollbar          { width: 5px; height: 5px; }
 ::-webkit-scrollbar-track    { background: transparent; }
-::-webkit-scrollbar-thumb    { background: #b8cce0; border-radius: 3px; }
-::-webkit-scrollbar-thumb:hover { background: rgba(37,99,235,0.35); }
+::-webkit-scrollbar-thumb    { background: #a8bed4; border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: rgba(37,99,235,0.4); }
 
 /* ── Panel ────────────────────────────────────────────────── */
 
@@ -66,18 +69,18 @@ body {
   background: var(--c-surface);
   border-radius: 14px;
   border: 1px solid var(--c-border);
-  padding: 20px 24px;
+  padding: 22px 26px;
   box-shadow:
-    0 1px 3px rgba(0,0,0,0.04),
-    0 4px 16px rgba(0,0,0,0.06);
+    0 1px 4px rgba(0,0,0,0.05),
+    0 4px 20px rgba(0,0,0,0.07);
 }
 
 /* ── Section title ─────────────────────────────────────────── */
 
 .section-title {
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 700;
-  letter-spacing: 0.18em;
+  letter-spacing: 0.16em;
   text-transform: uppercase;
   color: var(--c-text-muted);
   margin-bottom: 16px;
@@ -88,9 +91,9 @@ body {
 input[type="range"] {
   -webkit-appearance: none;
   appearance: none;
-  height: 3px;
+  height: 4px;
   border-radius: 2px;
-  background: #d1dde9;
+  background: #c4d2e1;
   outline: none;
   cursor: pointer;
   width: 100%;
@@ -98,25 +101,25 @@ input[type="range"] {
 
 input[type="range"]::-webkit-slider-thumb {
   -webkit-appearance: none;
-  width: 14px;
-  height: 14px;
+  width: 16px;
+  height: 16px;
   border-radius: 50%;
-  background: #2563eb;
-  box-shadow: 0 0 6px rgba(37,99,235,0.35);
+  background: #1d56db;
+  box-shadow: 0 0 6px rgba(37,99,235,0.4);
   cursor: pointer;
   border: 2px solid #ffffff;
   transition: box-shadow 0.15s;
 }
 
 input[type="range"]::-webkit-slider-thumb:hover {
-  box-shadow: 0 0 12px rgba(37,99,235,0.55);
+  box-shadow: 0 0 14px rgba(37,99,235,0.55);
 }
 
 input[type="range"]::-moz-range-thumb {
-  width: 14px;
-  height: 14px;
+  width: 16px;
+  height: 16px;
   border-radius: 50%;
-  background: #2563eb;
+  background: #1d56db;
   cursor: pointer;
   border: 2px solid #ffffff;
 }
@@ -133,10 +136,10 @@ input[type="number"]::-webkit-outer-spin-button {
 .input-dark {
   background: var(--c-input);
   border: 1px solid var(--c-border);
-  border-radius: 8px;
-  padding: 7px 12px;
+  border-radius: 9px;
+  padding: 9px 13px;
   color: var(--c-text);
-  font-size: 13px;
+  font-size: 14px;
   width: 100%;
   transition: border-color 0.15s, box-shadow 0.15s;
 }
@@ -147,8 +150,8 @@ input[type="number"]::-webkit-outer-spin-button {
 
 .input-dark:focus {
   outline: none;
-  border-color: rgba(37,99,235,0.45);
-  box-shadow: 0 0 0 3px rgba(37,99,235,0.08);
+  border-color: rgba(37,99,235,0.5);
+  box-shadow: 0 0 0 3px rgba(37,99,235,0.10);
 }
 
 select.input-dark {
@@ -162,27 +165,33 @@ select.input-dark {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+  background: linear-gradient(135deg, #1d56db 0%, #1741b0 100%);
   color: #fff;
   border: none;
-  border-radius: 8px;
-  padding: 7px 16px;
-  font-size: 12px;
+  border-radius: 9px;
+  padding: 9px 18px;
+  font-size: 13px;
   font-weight: 600;
   cursor: pointer;
   transition: all 0.15s;
-  box-shadow: 0 2px 6px rgba(37,99,235,0.25);
+  box-shadow: 0 2px 8px rgba(37,99,235,0.28);
   white-space: nowrap;
 }
 
 .btn-primary:hover {
-  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
-  box-shadow: 0 4px 12px rgba(59,130,246,0.35);
+  background: linear-gradient(135deg, #3b82f6 0%, #1d56db 100%);
+  box-shadow: 0 4px 14px rgba(59,130,246,0.38);
   transform: translateY(-1px);
 }
 
 .btn-primary:active {
   transform: translateY(0);
+}
+
+.btn-primary:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
 }
 
 .btn-ghost {
@@ -192,9 +201,9 @@ select.input-dark {
   background: transparent;
   color: var(--c-text-2);
   border: 1px solid var(--c-border);
-  border-radius: 8px;
-  padding: 6px 12px;
-  font-size: 12px;
+  border-radius: 9px;
+  padding: 7px 14px;
+  font-size: 13px;
   font-weight: 500;
   cursor: pointer;
   transition: all 0.15s;
@@ -202,8 +211,8 @@ select.input-dark {
 }
 
 .btn-ghost:hover {
-  background: rgba(37,99,235,0.05);
-  border-color: rgba(37,99,235,0.22);
+  background: rgba(37,99,235,0.06);
+  border-color: rgba(37,99,235,0.25);
   color: var(--c-text);
 }
 
@@ -212,30 +221,30 @@ select.input-dark {
 .data-table {
   width: 100%;
   border-collapse: collapse;
-  font-size: 12px;
+  font-size: 13px;
 }
 
 .data-table th {
-  padding: 8px 12px;
+  padding: 10px 14px;
   text-align: left;
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 700;
-  letter-spacing: 0.14em;
+  letter-spacing: 0.12em;
   text-transform: uppercase;
   color: var(--c-text-muted);
-  background: #f8fafc;
+  background: #f0f5fa;
   border-bottom: 1px solid var(--c-border);
 }
 
 .data-table td {
-  padding: 9px 12px;
-  border-bottom: 1px solid rgba(209,221,233,0.8);
-  color: #2d4a62;
-  vertical-align: top;
+  padding: 10px 14px;
+  border-bottom: 1px solid rgba(196,210,225,0.7);
+  color: #1a3347;
+  vertical-align: middle;
 }
 
 .data-table tbody tr:hover td {
-  background: rgba(37,99,235,0.03);
+  background: rgba(37,99,235,0.04);
 }
 
 .data-table tbody tr:last-child td {
@@ -284,8 +293,8 @@ select.input-dark {
 /* ── AI Advisor chat bubbles ──────────────────────────────── */
 
 .chat-user {
-  background: rgba(37, 99, 235, 0.08);
-  border: 1px solid rgba(37, 99, 235, 0.18);
+  background: rgba(37, 99, 235, 0.09);
+  border: 1px solid rgba(37, 99, 235, 0.20);
   border-radius: 12px 12px 4px 12px;
   padding: 10px 14px;
   max-width: 75%;
@@ -295,7 +304,7 @@ select.input-dark {
   background: var(--c-surface);
   border: 1px solid var(--c-border);
   border-radius: 4px 12px 12px 12px;
-  padding: 12px 16px;
+  padding: 14px 18px;
   max-width: 88%;
 }
 
@@ -313,6 +322,6 @@ select.input-dark {
   }
   .panel {
     box-shadow: none;
-    border: 1px solid #d1dde9;
+    border: 1px solid #c4d2e1;
   }
 }

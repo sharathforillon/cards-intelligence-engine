@@ -61,13 +61,14 @@ class SpendCategoryEngine:
     def __init__(self, db):
         self.db = db
 
-    def _get_all_rates(self) -> dict[str, dict[str, list[float]]]:
+    def _get_all_rates(self) -> dict[str, dict[str, list[tuple[float, str]]]]:
         """
         Query all cards and build:
-          { category: { bank_name: [rate, ...] } }
+          { category: { bank_name: [(rate, card_name), ...] } }
+        Tracks card names so we can surface the exact winning card per category.
         """
         cards = self.db.query(CompetitorCard).all()
-        category_bank_rates: dict[str, dict[str, list[float]]] = {
+        category_bank_rates: dict[str, dict[str, list[tuple[float, str]]]] = {
             cat: {} for cat in CATEGORY_SPEND_SHARES
         }
 
@@ -75,7 +76,6 @@ class SpendCategoryEngine:
             cb = card.cashback_rate
             if not isinstance(cb, dict):
                 if isinstance(cb, (int, float)):
-                    # Use base rate for all categories
                     cb = {"base": float(cb)}
                 else:
                     continue
@@ -86,9 +86,10 @@ class SpendCategoryEngine:
                 cat_rate = _extract_rate_for_category(cb, cat)
                 effective = cat_rate if cat_rate is not None else base_rate
                 bank = card.bank_name
+                card_name = card.card_name or ""
                 if bank not in category_bank_rates[cat]:
                     category_bank_rates[cat][bank] = []
-                category_bank_rates[cat][bank].append(effective)
+                category_bank_rates[cat][bank].append((effective, card_name))
 
         return category_bank_rates
 
@@ -132,19 +133,23 @@ class SpendCategoryEngine:
             bank_rates = all_rates[cat]
             mashreq_rate = self._mashreq_rate_for_category(cat)
 
-            # Aggregate: best rate per bank
-            best_per_bank: dict[str, float] = {
-                bank: max(rates) for bank, rates in bank_rates.items() if rates
-            }
+            # Aggregate: best rate per bank, tracking which card achieved it
+            best_per_bank: dict[str, tuple[float, str]] = {}
+            for bank, entries in bank_rates.items():
+                if entries:
+                    best_entry = max(entries, key=lambda x: x[0])
+                    best_per_bank[bank] = best_entry  # (rate, card_name)
 
             if not best_per_bank:
                 continue
 
-            sorted_banks = sorted(best_per_bank.items(), key=lambda x: x[1], reverse=True)
-            market_leader_bank, market_leader_rate = sorted_banks[0]
-            top_3 = sorted_banks[:3]
+            sorted_banks = sorted(
+                best_per_bank.items(), key=lambda x: x[1][0], reverse=True
+            )
+            market_leader_bank, (market_leader_rate, market_leader_card) = sorted_banks[0]
+            top_3 = [(b, r) for b, (r, _) in sorted_banks[:3]]
 
-            all_rates_flat = list(best_per_bank.values())
+            all_rates_flat = [r for r, _ in best_per_bank.values()]
             market_avg = sum(all_rates_flat) / len(all_rates_flat) if all_rates_flat else 0
 
             # Competitor strength: avg of top-3 rates normalised by market max
@@ -171,6 +176,7 @@ class SpendCategoryEngine:
                 "mashreq_rate": round(mashreq_rate, 4),
                 "market_leader_rate": round(market_leader_rate, 4),
                 "market_leader_bank": market_leader_bank,
+                "market_leader_card": market_leader_card,   # specific winning card
                 "market_avg_rate": round(market_avg, 4),
                 "competitor_strength": round(competitor_strength, 3),
                 "opportunity_index": round(opportunity_index, 3),

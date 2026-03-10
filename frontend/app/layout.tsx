@@ -42,40 +42,47 @@ export default function RootLayout({
         <meta name="description" content="Fintech strategy intelligence for credit card portfolios." />
       </head>
       <body className={`${inter.variable} ${montserrat.variable} antialiased`}>
-        {/* Top navigation bar */}
+        {/* ── Top navigation bar ── */}
         <header
           style={{
-            borderBottom: "1px solid #d1dde9",
-            background: "rgba(255,255,255,0.97)",
-            backdropFilter: "blur(12px)",
-            WebkitBackdropFilter: "blur(12px)",
+            borderBottom: "1px solid #c4d2e1",
+            background: "rgba(255,255,255,0.98)",
+            backdropFilter: "blur(16px)",
+            WebkitBackdropFilter: "blur(16px)",
             position: "sticky",
             top: 0,
             zIndex: 50,
+            boxShadow: "0 1px 6px rgba(0,0,0,0.06)",
           }}
         >
-          <div className="flex w-full items-center justify-between px-4 py-2.5 lg:px-8">
+          <div className="flex w-full items-center justify-between px-5 py-3.5 lg:px-10">
+
             {/* Logo + wordmark */}
             <div className="flex items-center gap-3">
               <div
-                className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-[11px] font-bold text-white"
+                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-[13px] font-bold text-white"
                 style={{
-                  background: "linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%)",
-                  boxShadow: "0 2px 8px rgba(37,99,235,0.3)",
+                  background: "linear-gradient(135deg, #1d56db 0%, #1741b0 100%)",
+                  boxShadow: "0 3px 10px rgba(37,99,235,0.35)",
                 }}
               >
                 CS
               </div>
-              <div className="flex items-baseline gap-2">
+              <div className="flex items-baseline gap-2.5">
                 <span
-                  className="font-heading text-sm font-bold tracking-tight"
-                  style={{ color: "#1e2d3d" }}
+                  className="font-heading text-base font-bold tracking-tight"
+                  style={{ color: "#0d1f2f" }}
                 >
                   Cards Strategy Engine
                 </span>
                 <span
-                  className="hidden text-[10px] font-medium uppercase tracking-[0.14em] xl:inline"
-                  style={{ color: "#3d5570" }}
+                  className="hidden text-[11px] font-semibold uppercase tracking-[0.14em] xl:inline"
+                  style={{
+                    color: "#3a5270",
+                    borderLeft: "1px solid #c4d2e1",
+                    paddingLeft: "10px",
+                    marginLeft: "2px",
+                  }}
                 >
                   Head of Cards · UAE
                 </span>
@@ -85,16 +92,30 @@ export default function RootLayout({
             {/* Desktop nav */}
             <nav className="hidden items-center gap-0.5 lg:flex">
               {NAV_ITEMS.map((item) => {
-                const active = pathname === item.href || pathname.startsWith(item.href + "/");
+                const active =
+                  pathname === item.href ||
+                  pathname.startsWith(item.href + "/");
                 return (
                   <a
                     key={item.href}
                     href={item.href}
-                    className="rounded-lg px-2.5 py-1.5 text-[11px] font-medium transition-all duration-150"
                     style={{
-                      color: active ? "#2563eb" : "#4a6480",
-                      background: active ? "rgba(37,99,235,0.08)" : "transparent",
+                      display: "inline-flex",
+                      alignItems: "center",
+                      padding: "7px 14px",
+                      borderRadius: "8px",
+                      fontSize: "13px",
                       fontWeight: active ? 700 : 500,
+                      letterSpacing: "0.01em",
+                      textDecoration: "none",
+                      transition: "all 0.15s",
+                      color: active ? "#1d56db" : "#1a3347",
+                      background: active
+                        ? "rgba(29,86,219,0.09)"
+                        : "transparent",
+                      borderBottom: active
+                        ? "2px solid #1d56db"
+                        : "2px solid transparent",
                     }}
                   >
                     {item.label}
@@ -104,28 +125,39 @@ export default function RootLayout({
             </nav>
 
             {/* Right: live badge + mobile hamburger */}
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-3">
               <div
-                className="hidden items-center gap-2 rounded-full px-3 py-1 text-[11px] font-semibold sm:flex"
+                className="hidden items-center gap-2 rounded-full px-3.5 py-1.5 sm:flex"
                 style={{
-                  background: "rgba(5,150,105,0.08)",
-                  border: "1px solid rgba(5,150,105,0.22)",
-                  color: "#059669",
+                  background: "rgba(4,120,87,0.08)",
+                  border: "1px solid rgba(4,120,87,0.25)",
+                  color: "#047857",
+                  fontSize: "12px",
+                  fontWeight: 700,
                   letterSpacing: "0.08em",
                 }}
               >
-                <span className="dot-pulse h-1.5 w-1.5 rounded-full" style={{ background: "#059669" }} />
+                <span
+                  className="dot-pulse h-2 w-2 rounded-full"
+                  style={{ background: "#047857" }}
+                />
                 LIVE
               </div>
 
               {/* Mobile hamburger */}
               <button
-                className="flex h-8 w-8 items-center justify-center rounded-lg lg:hidden"
-                style={{ border: "1px solid #d1dde9", background: "#f8fafc" }}
+                className="flex h-9 w-9 items-center justify-center rounded-xl lg:hidden"
+                style={{
+                  border: "1px solid #c4d2e1",
+                  background: "#f0f5fa",
+                  color: "#0d1f2f",
+                  fontSize: 16,
+                  fontWeight: 700,
+                }}
                 onClick={() => setNavOpen(!navOpen)}
                 aria-label="Toggle navigation"
               >
-                <span style={{ fontSize: 14 }}>{navOpen ? "✕" : "☰"}</span>
+                {navOpen ? "✕" : "☰"}
               </button>
             </div>
           </div>
@@ -133,22 +165,26 @@ export default function RootLayout({
           {/* Mobile nav dropdown */}
           {navOpen && (
             <div
-              className="border-t px-4 py-3 lg:hidden"
-              style={{ borderColor: "#d1dde9", background: "#ffffff" }}
+              className="border-t px-5 py-4 lg:hidden"
+              style={{ borderColor: "#c4d2e1", background: "#ffffff" }}
             >
-              <div className="grid grid-cols-3 gap-1">
+              <div className="grid grid-cols-3 gap-2">
                 {NAV_ITEMS.map((item) => {
                   const active = pathname === item.href;
                   return (
                     <a
                       key={item.href}
                       href={item.href}
-                      className="rounded-lg px-2 py-2 text-center text-[11px] font-medium"
+                      className="rounded-xl px-2 py-2.5 text-center"
                       style={{
-                        color: active ? "#2563eb" : "#4a6480",
-                        background: active ? "rgba(37,99,235,0.08)" : "#f8fafc",
-                        border: "1px solid #d1dde9",
+                        fontSize: "13px",
                         fontWeight: active ? 700 : 500,
+                        color: active ? "#1d56db" : "#1a3347",
+                        background: active
+                          ? "rgba(29,86,219,0.09)"
+                          : "#f0f5fa",
+                        border: `1px solid ${active ? "rgba(29,86,219,0.25)" : "#c4d2e1"}`,
+                        textDecoration: "none",
                       }}
                       onClick={() => setNavOpen(false)}
                     >

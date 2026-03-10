@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { motion } from "framer-motion";
 
 import ExecutiveInsight from "@/components/ExecutiveInsight";
@@ -8,8 +8,25 @@ import BattlefieldChart from "@/components/BattlefieldChart";
 import PortfolioPanel from "@/components/PortfolioPanel";
 import StrategyLeaderboard from "@/components/StrategyLeaderboard";
 import StrategySandbox from "@/components/StrategySandbox";
+import { useCachedFetch } from "@/hooks/useCachedFetch";
 
 type Pulse = "green" | "amber" | "red";
+
+type PortfolioCard = {
+  card_name: string;
+  active_cards: number;
+  monthly_spend: number;
+};
+
+type SegmentRow = {
+  label: string;
+  tier: string;
+  tier_badge_color: string;
+  tier_color: string;
+  profit_per_customer: number;
+  cards_issued: number;
+  rank: number;
+};
 
 const pulseConfig = {
   green: {
@@ -33,12 +50,32 @@ const pulseConfig = {
 };
 
 export default function Dashboard() {
-  const [nim, setNim] = useState<number | null>(null);
-  const [roe, setRoe] = useState<number | null>(null);
-  const [raroc, setRaroc] = useState<number | null>(null);
-  const [activeCards, setActiveCards] = useState<number | null>(null);
-  const [cac, setCac] = useState<number | null>(null);
-  const [loadingHeader, setLoadingHeader] = useState(false);
+  // Real portfolio data — no hardcoded fallbacks
+  const {
+    data: portfolioCards,
+    loading: loadingHeader,
+    refresh: refreshHeader,
+  } = useCachedFetch<PortfolioCard[]>(
+    "api:portfolio/cards",
+    () => fetch("http://localhost:8000/portfolio/cards").then((r) => r.json()),
+  );
+
+  // Derive active card count from real data only
+  const activeCards = useMemo(
+    () =>
+      portfolioCards && portfolioCards.length > 0
+        ? portfolioCards.reduce((sum, c) => sum + (c.active_cards || 0), 0)
+        : null,
+    [portfolioCards],
+  );
+
+  // NIM, ROE, RAROC, CAC: no dedicated backend endpoint yet — show "—"
+  // Using useState so TypeScript does not narrow the type to `never` on the null literal.
+  // These will be wired to a real API once the endpoint is built.
+  const [nim]   = useState<number | null>(null);
+  const [roe]   = useState<number | null>(null);
+  const [raroc] = useState<number | null>(null);
+  const [cac]   = useState<number | null>(null);
 
   const strategyPulse: Pulse = useMemo(() => {
     if (raroc === null || roe === null) return "amber";
@@ -46,39 +83,6 @@ export default function Dashboard() {
     if (raroc >= 15) return "amber";
     return "red";
   }, [raroc, roe]);
-
-  async function loadPortfolioSnapshot() {
-    setLoadingHeader(true);
-    try {
-      const res = await fetch("http://localhost:8000/portfolio/cards");
-      const data = await res.json();
-      if (Array.isArray(data) && data.length > 0) {
-        const totalActive = data.reduce(
-          (sum: number, c: any) => sum + (c.active_cards || 0),
-          0
-        );
-        const totalSpend = data.reduce(
-          (sum: number, c: any) => sum + (c.monthly_spend || 0),
-          0
-        );
-        setActiveCards(totalActive);
-        setNim(totalSpend > 0 ? 0.038 : 0.036);
-        setRoe(21.4);
-        setRaroc(19.1);
-        setCac(412);
-      } else {
-        setActiveCards(null);
-      }
-    } catch (e) {
-      console.error("Failed to load portfolio snapshot", e);
-    } finally {
-      setLoadingHeader(false);
-    }
-  }
-
-  useEffect(() => {
-    loadPortfolioSnapshot();
-  }, []);
 
   const pulse = pulseConfig[strategyPulse];
 
@@ -135,7 +139,7 @@ export default function Dashboard() {
               </div>
 
               <button
-                onClick={loadPortfolioSnapshot}
+                onClick={refreshHeader}
                 className="btn-primary"
                 disabled={loadingHeader}
               >
@@ -230,17 +234,12 @@ export default function Dashboard() {
 /* ── Segment Summary Widget ──────────────────────────────── */
 
 function SegmentSummaryWidget() {
-  const [segments, setSegments] = useState<{
-    label: string; tier: string; tier_badge_color: string; tier_color: string;
-    profit_per_customer: number; cards_issued: number; rank: number;
-  }[]>([]);
-
-  useEffect(() => {
-    fetch("http://localhost:8000/segments/profitability")
-      .then((r) => r.json())
-      .then((data) => setSegments(data.slice(0, 3)))
-      .catch(console.error);
-  }, []);
+  const { data } = useCachedFetch<SegmentRow[]>(
+    "api:segments/profitability",
+    () =>
+      fetch("http://localhost:8000/segments/profitability").then((r) => r.json()),
+  );
+  const segments = useMemo(() => data?.slice(0, 3) ?? [], [data]);
 
   return (
     <div
@@ -290,7 +289,9 @@ function SegmentSummaryWidget() {
           </div>
         ))}
         {segments.length === 0 && (
-          <p className="py-4 text-center text-xs" style={{ color: "#3d5570" }}>Loading segments…</p>
+          <p className="py-4 text-center text-xs" style={{ color: "#3d5570" }}>
+            Data not available.
+          </p>
         )}
       </div>
     </div>

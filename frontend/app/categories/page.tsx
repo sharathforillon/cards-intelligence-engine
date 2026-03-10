@@ -13,6 +13,7 @@ type CategoryMetric = {
   mashreq_rate: number;
   market_leader_rate: number;
   market_leader_bank: string;
+  market_leader_card?: string;
   market_avg_rate: number;
   competitor_strength: number;
   opportunity_index: number;
@@ -87,9 +88,13 @@ export default function CategoriesPage() {
                         {m.icon} {m.label}
                       </p>
                       <p className="text-[10px]" style={{ color: "#4a6480" }}>
-                        Mashreq: <span style={{ color: "#2563eb", fontWeight: 700 }}>{(m.mashreq_rate * 100).toFixed(1)}%</span>
+                        Mashreq: <span style={{ color: "#1d56db", fontWeight: 700 }}>{(m.mashreq_rate * 100).toFixed(1)}%</span>
                         {" vs "}
-                        <span style={{ color: "#e11d48", fontWeight: 700 }}>{(m.market_leader_rate * 100).toFixed(1)}%</span>
+                        <span style={{ color: "#be123c", fontWeight: 700 }}>{(m.market_leader_rate * 100).toFixed(1)}%</span>
+                        {" "}
+                        <span style={{ color: "#be123c", fontWeight: 600 }}>
+                          ({m.market_leader_bank}{m.market_leader_card ? ` · ${m.market_leader_card}` : ""})
+                        </span>
                       </p>
                     </div>
                     {m.underperforming && (
@@ -164,10 +169,17 @@ export default function CategoriesPage() {
                   {(m.opportunity_index * 100).toFixed(0)}% gap
                 </p>
                 <p className="text-[10px]" style={{ color: "#4a6480" }}>
-                  Mashreq {(m.mashreq_rate * 100).toFixed(1)}% vs {m.market_leader_bank} {(m.market_leader_rate * 100).toFixed(1)}%
+                  Mashreq <strong style={{ color: "#1d56db" }}>{(m.mashreq_rate * 100).toFixed(1)}%</strong>
+                  {" vs "}
+                  <strong style={{ color: "#be123c" }}>{m.market_leader_bank} {(m.market_leader_rate * 100).toFixed(1)}%</strong>
                 </p>
+                {m.market_leader_card && (
+                  <p className="mt-0.5 text-[10px]" style={{ color: "#7f1d1d", fontWeight: 600 }}>
+                    📋 {m.market_leader_card}
+                  </p>
+                )}
                 <p className="mt-1 text-[10px]" style={{ color: "#4a6480" }}>
-                  Top banks: {m.top_3_banks.map((b) => b.bank).join(", ")}
+                  Top: {m.top_3_banks.map((b) => `${b.bank} ${(b.rate * 100).toFixed(1)}%`).join(" · ")}
                 </p>
               </div>
             ))}
