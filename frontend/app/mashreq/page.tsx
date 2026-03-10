@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useMemo } from "react";
 import Panel from "@/components/Panel";
+import PortfolioEconomics from "@/components/PortfolioEconomics";
 
 /* ── Types ──────────────────────────────────────────────────────────────── */
 
@@ -392,7 +393,17 @@ export default function MashreqPortfolioPage() {
         </section>
 
         {/* ══════════════════════════════════════════════════════════════════
-            SECTION 2 — CARD-LEVEL SNAPSHOTS
+            SECTION 2 — PORTFOLIO ECONOMICS ENGINE
+        ══════════════════════════════════════════════════════════════════ */}
+        <section>
+          <SectionDivider label="Portfolio Economics Engine · Profit Model" />
+          <div className="mt-4">
+            <PortfolioEconomics />
+          </div>
+        </section>
+
+        {/* ══════════════════════════════════════════════════════════════════
+            SECTION 3 — CARD-LEVEL SNAPSHOTS
         ══════════════════════════════════════════════════════════════════ */}
         <section>
           <SectionDivider label="Card-Level Snapshots · Monthly Performance" />
