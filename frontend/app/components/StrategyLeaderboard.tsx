@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import Panel from "./Panel";
+import CacheBar from "./CacheBar";
+import { useCachedFetch } from "@/hooks/useCachedFetch";
 
 type StrategyResult = {
   strategy: { reward_rate: number; annual_fee: number; features: number };
@@ -24,43 +25,33 @@ const rankConfig = [
   { bg: "rgba(180,120,80,0.05)",  border: "rgba(180,120,80,0.16)",  badge: "#b47850", label: "🥉" },
 ];
 
-export default function StrategyLeaderboard() {
-  const [rows, setRows] = useState<StrategyResult[]>([]);
-  const [loading, setLoading] = useState(false);
-
-  async function runGrid() {
-    setLoading(true);
-    try {
-      const results: StrategyResult[] = [];
-      for (const s of GRID) {
-        const res = await fetch("http://localhost:8000/simulate", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(s),
-        });
-        const data = await res.json();
-        results.push(data);
-      }
-      results.sort((a, b) => b.strategy_score - a.strategy_score);
-      setRows(results);
-    } catch (e) {
-      console.error("Failed to run strategy grid", e);
-    } finally {
-      setLoading(false);
-    }
+async function runStrategyGrid(): Promise<StrategyResult[]> {
+  const results: StrategyResult[] = [];
+  for (const s of GRID) {
+    const res = await fetch("http://localhost:8000/simulate", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(s),
+    });
+    results.push(await res.json());
   }
+  results.sort((a, b) => b.strategy_score - a.strategy_score);
+  return results;
+}
 
-  useEffect(() => { runGrid(); }, []);
+export default function StrategyLeaderboard() {
+  const { data, loading, refresh, fetchedAt } = useCachedFetch<StrategyResult[]>(
+    "api:strategy/leaderboard",
+    runStrategyGrid,
+    5 * 60 * 1000,
+  );
+  const rows = data ?? [];
 
   return (
     <Panel
       title="Strategy Optimizer · Leaderboard"
       accent="violet"
-      action={
-        <button onClick={runGrid} className="btn-ghost" disabled={loading}>
-          {loading ? "Running…" : "↺ Run grid"}
-        </button>
-      }
+      action={<CacheBar fetchedAt={fetchedAt} onRefresh={refresh} loading={loading} />}
     >
       <p className="mb-3 text-xs" style={{ color: "#4a6480" }}>
         Ranked by composite{" "}
@@ -135,7 +126,7 @@ export default function StrategyLeaderboard() {
             {rows.length === 0 && (
               <tr>
                 <td colSpan={6} className="py-8 text-center text-xs" style={{ color: "#3d5570" }}>
-                  {loading ? "Running strategy simulation…" : "No strategies evaluated yet."}
+                  {loading ? "Running strategy simulation…" : "Data not available."}
                 </td>
               </tr>
             )}

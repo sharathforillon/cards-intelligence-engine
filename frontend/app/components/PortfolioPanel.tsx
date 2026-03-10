@@ -1,8 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useMemo } from "react";
 import { Line, LineChart, ResponsiveContainer, Tooltip } from "recharts";
 import Panel from "./Panel";
+import CacheBar from "./CacheBar";
+import { useCachedFetch } from "@/hooks/useCachedFetch";
 
 type PortfolioCard = {
   card_name: string;
@@ -12,30 +14,21 @@ type PortfolioCard = {
 };
 
 export default function PortfolioPanel() {
-  const [cards, setCards] = useState<PortfolioCard[]>([]);
-  const [loading, setLoading] = useState(false);
+  const { data, loading, refresh, fetchedAt } = useCachedFetch<PortfolioCard[]>(
+    "api:portfolio/cards",
+    () => fetch("http://localhost:8000/portfolio/cards").then((r) => r.json()),
+  );
+  const cards = data ?? [];
 
-  useEffect(() => {
-    async function loadPortfolio() {
-      setLoading(true);
-      try {
-        const res = await fetch("http://localhost:8000/portfolio/cards");
-        const data = await res.json();
-        setCards(data);
-      } catch (e) {
-        console.error("Failed to load portfolio cards", e);
-      } finally {
-        setLoading(false);
-      }
-    }
-    loadPortfolio();
-  }, []);
-
-  const totalActive = cards.reduce((s, c) => s + c.active_cards, 0);
-  const totalSpend  = cards.reduce((s, c) => s + c.monthly_spend, 0);
+  const totalActive = useMemo(() => cards.reduce((s, c) => s + c.active_cards, 0), [cards]);
+  const totalSpend  = useMemo(() => cards.reduce((s, c) => s + c.monthly_spend, 0), [cards]);
 
   return (
-    <Panel title="Portfolio Performance · Active Cards & Spend" accent="emerald">
+    <Panel
+      title="Portfolio Performance · Active Cards & Spend"
+      accent="emerald"
+      action={<CacheBar fetchedAt={fetchedAt} onRefresh={refresh} loading={loading} />}
+    >
       <div className="space-y-4">
         {/* Aggregate stats */}
         {cards.length > 0 && (
@@ -96,7 +89,7 @@ export default function PortfolioPanel() {
               {cards.length === 0 && (
                 <tr>
                   <td colSpan={4} className="py-8 text-center text-xs" style={{ color: "#3d5570" }}>
-                    {loading ? "Loading portfolio cards…" : "No portfolio data available."}
+                    {loading ? "Loading…" : "No portfolio data available."}
                   </td>
                 </tr>
               )}
@@ -104,14 +97,14 @@ export default function PortfolioPanel() {
           </table>
         </div>
 
-        {/* Sparkline */}
-        {cards.length > 0 && (
+        {/* Sparkline — only when there are at least 2 cards to plot */}
+        {cards.length >= 2 && (
           <div
             className="rounded-xl px-3 py-3"
             style={{ background: "#f8fafc", border: "1px solid #d1dde9", height: "88px" }}
           >
             <p className="mb-1 text-[10px] font-bold uppercase tracking-[0.14em]" style={{ color: "#3d5570" }}>
-              Active cards trend (synthetic)
+              Active cards by product
             </p>
             <div style={{ height: "52px" }}>
               <ResponsiveContainer width="100%" height="100%">
