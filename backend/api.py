@@ -13,7 +13,7 @@ from backend.strategy_engine import StrategyEngine
 from backend.profitability_simulator import ProfitabilitySimulator
 
 from backend.models import CompetitorCard
-from backend.models_portfolio import MashreqCardPerformance
+from backend.models_portfolio import MashreqCardPerformance, BankPortfolioSnapshot
 
 
 app = FastAPI(title="Cards Strategy Engine")
@@ -362,3 +362,91 @@ def delete_portfolio_card(card_id: int, db: Session = Depends(get_db)):
     db.commit()
 
     return {"status": "deleted", "id": card_id}
+
+
+# ── Bank-level (Head of Cards) portfolio endpoints ───────────────────────────
+
+@app.get("/portfolio/bank")
+def get_bank_snapshot(db: Session = Depends(get_db)):
+    """Return the most recent bank-level portfolio snapshot."""
+    record = (
+        db.query(BankPortfolioSnapshot)
+        .order_by(BankPortfolioSnapshot.timestamp.desc())
+        .first()
+    )
+    if not record:
+        return {}
+    return {
+        "id":                 record.id,
+        "period":             record.period,
+        "market_share":       record.market_share,
+        "nim":                record.nim,
+        "cost_income_ratio":  record.cost_income_ratio,
+        "rwa":                record.rwa,
+        "raroc":              record.raroc,
+        "roe":                record.roe,
+        "provision_coverage": record.provision_coverage,
+        "ntb_budget":         record.ntb_budget,
+        "revenue_budget":     record.revenue_budget,
+        "op_cost":            record.op_cost,
+        "nps":                record.nps,
+        "avg_bureau_score":   record.avg_bureau_score,
+        "digital_penetration":record.digital_penetration,
+        "timestamp":          record.timestamp.isoformat() if record.timestamp else None,
+    }
+
+
+@app.post("/portfolio/bank")
+def save_bank_snapshot(data: dict = Body(...), db: Session = Depends(get_db)):
+    """Save a new bank-level portfolio snapshot."""
+    record = BankPortfolioSnapshot(
+        period=data.get("period", ""),
+        market_share=data.get("market_share", 0.0),
+        nim=data.get("nim", 0.0),
+        cost_income_ratio=data.get("cost_income_ratio", 0.0),
+        rwa=data.get("rwa", 0.0),
+        raroc=data.get("raroc", 0.0),
+        roe=data.get("roe", 0.0),
+        provision_coverage=data.get("provision_coverage", 0.0),
+        ntb_budget=data.get("ntb_budget", 0),
+        revenue_budget=data.get("revenue_budget", 0.0),
+        op_cost=data.get("op_cost", 0.0),
+        nps=data.get("nps", 0.0),
+        avg_bureau_score=data.get("avg_bureau_score", 0.0),
+        digital_penetration=data.get("digital_penetration", 0.0),
+    )
+    db.add(record)
+    db.commit()
+    return {"status": "saved", "id": record.id}
+
+
+@app.get("/portfolio/bank/history")
+def get_bank_history(db: Session = Depends(get_db)):
+    """Return all bank-level snapshots ordered by period."""
+    records = (
+        db.query(BankPortfolioSnapshot)
+        .order_by(BankPortfolioSnapshot.timestamp.desc())
+        .limit(24)
+        .all()
+    )
+    return [
+        {
+            "id":                 r.id,
+            "period":             r.period,
+            "market_share":       r.market_share,
+            "nim":                r.nim,
+            "cost_income_ratio":  r.cost_income_ratio,
+            "rwa":                r.rwa,
+            "raroc":              r.raroc,
+            "roe":                r.roe,
+            "provision_coverage": r.provision_coverage,
+            "ntb_budget":         r.ntb_budget,
+            "revenue_budget":     r.revenue_budget,
+            "op_cost":            r.op_cost,
+            "nps":                r.nps,
+            "avg_bureau_score":   r.avg_bureau_score,
+            "digital_penetration":r.digital_penetration,
+            "timestamp":          r.timestamp.isoformat() if r.timestamp else None,
+        }
+        for r in records
+    ]

@@ -3,6 +3,38 @@ from backend.database import Base
 import datetime
 
 
+class BankPortfolioSnapshot(Base):
+    """Bank-level (Head of Cards) metrics — one snapshot per period."""
+
+    __tablename__ = "bank_portfolio_snapshots"
+
+    id     = Column(Integer, primary_key=True)
+    period = Column(String)   # "YYYY-MM" e.g. "2026-03"
+
+    # ── Market Position ────────────────────────────────────────────────────────
+    market_share        = Column(Float, default=0.0)   # % of UAE CC market by spend
+    nim                 = Column(Float, default=0.0)   # Net Interest Margin %
+    cost_income_ratio   = Column(Float, default=0.0)   # Cost-to-Income Ratio %
+
+    # ── Capital Efficiency ─────────────────────────────────────────────────────
+    rwa                 = Column(Float, default=0.0)   # Risk-Weighted Assets AED M
+    raroc               = Column(Float, default=0.0)   # Risk-Adj Return on Capital %
+    roe                 = Column(Float, default=0.0)   # Return on Equity %
+    provision_coverage  = Column(Float, default=0.0)   # Provision Coverage Ratio %
+
+    # ── Budget & Operational Cost ──────────────────────────────────────────────
+    ntb_budget          = Column(Integer, default=0)   # Monthly NTB card issuance target
+    revenue_budget      = Column(Float, default=0.0)   # Monthly revenue target (AED)
+    op_cost             = Column(Float, default=0.0)   # Monthly operational cost (AED)
+
+    # ── Customer Intelligence ──────────────────────────────────────────────────
+    nps                 = Column(Float, default=0.0)   # Net Promoter Score  (-100 to 100)
+    avg_bureau_score    = Column(Float, default=0.0)   # Portfolio avg credit bureau score
+    digital_penetration = Column(Float, default=0.0)   # % customers on mobile / digital
+
+    timestamp = Column(DateTime, default=datetime.datetime.utcnow)
+
+
 class MashreqCardPerformance(Base):
 
     __tablename__ = "mashreq_card_performance"

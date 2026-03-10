@@ -14,6 +14,7 @@ import Panel from "./Panel";
 type CardRow = {
   bank: string;
   card_name: string;
+  category: string;
   annual_fee: number;
   cashback_rate: number | null;
   fx_markup?: number | null;
@@ -21,17 +22,46 @@ type CardRow = {
   key_benefits?: string | null;
 };
 
+// Category display config
+const CATEGORY_CONFIG: Record<string, { label: string; color: string; bg: string }> = {
+  cashback:  { label: "Cashback",  color: "#059669", bg: "rgba(5,150,105,0.09)"  },
+  premium:   { label: "Premium",   color: "#7c3aed", bg: "rgba(124,58,237,0.09)" },
+  travel:    { label: "Travel",    color: "#2563eb", bg: "rgba(37,99,235,0.09)"  },
+  miles:     { label: "Miles",     color: "#0284c7", bg: "rgba(2,132,199,0.09)"  },
+  islamic:   { label: "Islamic",   color: "#d97706", bg: "rgba(217,119,6,0.09)"  },
+  lifestyle: { label: "Lifestyle", color: "#e11d48", bg: "rgba(225,29,72,0.09)"  },
+  classic:   { label: "Classic",   color: "#4a6480", bg: "rgba(74,100,128,0.09)" },
+};
+
+function categoryChip(cat: string) {
+  const cfg = CATEGORY_CONFIG[cat?.toLowerCase()] ?? { label: cat ?? "—", color: "#4a6480", bg: "rgba(74,100,128,0.09)" };
+  return (
+    <span
+      className="inline-block rounded-md px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide whitespace-nowrap"
+      style={{ color: cfg.color, background: cfg.bg }}
+    >
+      {cfg.label}
+    </span>
+  );
+}
+
+const ALL_BANKS = "All Banks";
+const ALL_CATS  = "All Categories";
+
 export default function CardIntelligenceTable() {
   const [rawCards, setRawCards] = useState<any[]>([]);
-  const [query, setQuery] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [sorting, setSorting] = useState<SortingState>([]);
+  const [query, setQuery]       = useState("");
+  const [bankFilter, setBankFilter]   = useState(ALL_BANKS);
+  const [catFilter,  setCatFilter]    = useState(ALL_CATS);
+  const [feeFilter,  setFeeFilter]    = useState<"all" | "free" | "paid">("all");
+  const [loading, setLoading]   = useState(false);
+  const [sorting, setSorting]   = useState<SortingState>([]);
 
   useEffect(() => {
     async function loadCards() {
       setLoading(true);
       try {
-        const res = await fetch("http://localhost:8000/cards");
+        const res  = await fetch("http://localhost:8000/cards");
         const data = await res.json();
         setRawCards(data);
       } catch (e) {
@@ -46,27 +76,48 @@ export default function CardIntelligenceTable() {
   const cards: CardRow[] = useMemo(
     () =>
       rawCards.map((c) => ({
-        bank: c.bank,
-        card_name: c.card_name,
-        annual_fee: c.annual_fee,
-        cashback_rate: c.cashback_rate,
-        fx_markup: c.fx_markup ?? null,
-        min_salary: c.min_salary ?? null,
+        bank:         c.bank,
+        card_name:    c.card_name,
+        category:     c.category ?? "",
+        annual_fee:   c.annual_fee,
+        cashback_rate:c.cashback_rate,
+        fx_markup:    c.fx_markup ?? null,
+        min_salary:   c.min_salary ?? null,
         key_benefits: c.reward_summary ?? null,
       })),
     [rawCards]
   );
 
+  // Unique filter options derived from loaded data
+  const banks      = useMemo(() => [ALL_BANKS, ...Array.from(new Set(cards.map((c) => c.bank))).sort()], [cards]);
+  const categories = useMemo(() => [ALL_CATS,  ...Array.from(new Set(cards.map((c) => c.category).filter(Boolean))).sort()], [cards]);
+
   const filtered = useMemo(() => {
-    if (!query) return cards;
-    const q = query.toLowerCase();
-    return cards.filter(
-      (c) =>
-        c.bank.toLowerCase().includes(q) ||
-        c.card_name.toLowerCase().includes(q) ||
-        (c.key_benefits ?? "").toLowerCase().includes(q)
-    );
-  }, [cards, query]);
+    let rows = cards;
+
+    if (bankFilter !== ALL_BANKS)
+      rows = rows.filter((c) => c.bank === bankFilter);
+
+    if (catFilter !== ALL_CATS)
+      rows = rows.filter((c) => c.category === catFilter);
+
+    if (feeFilter === "free")
+      rows = rows.filter((c) => !c.annual_fee || c.annual_fee === 0);
+    else if (feeFilter === "paid")
+      rows = rows.filter((c) => c.annual_fee && c.annual_fee > 0);
+
+    if (query) {
+      const q = query.toLowerCase();
+      rows = rows.filter(
+        (c) =>
+          c.bank.toLowerCase().includes(q) ||
+          c.card_name.toLowerCase().includes(q) ||
+          (c.key_benefits ?? "").toLowerCase().includes(q)
+      );
+    }
+
+    return rows;
+  }, [cards, bankFilter, catFilter, feeFilter, query]);
 
   const columns = useMemo<ColumnDef<CardRow>[]>(
     () => [
@@ -87,13 +138,18 @@ export default function CardIntelligenceTable() {
         ),
       },
       {
+        accessorKey: "category",
+        header: "Category",
+        cell: (info) => categoryChip(info.getValue<string>()),
+      },
+      {
         accessorKey: "annual_fee",
         header: "Annual Fee",
         cell: (info) => {
           const v = info.getValue<number>();
           return (
-            <span className="tabular-nums" style={{ color: "#2d4a62" }}>
-              {v ? `AED ${v.toFixed(0)}` : "—"}
+            <span className="tabular-nums" style={{ color: v ? "#2d4a62" : "#059669", fontWeight: v ? 400 : 600 }}>
+              {v ? `AED ${v.toFixed(0)}` : "Free"}
             </span>
           );
         },
@@ -116,8 +172,8 @@ export default function CardIntelligenceTable() {
         cell: (info) => {
           const v = info.getValue<number | null>();
           return (
-            <span className="tabular-nums" style={{ color: "#4a6480" }}>
-              {v ? `${v.toFixed(2)}%` : "—"}
+            <span className="tabular-nums" style={{ color: v === 0 ? "#059669" : "#4a6480", fontWeight: v === 0 ? 600 : 400 }}>
+              {v === 0 ? "Free" : v ? `${v.toFixed(2)}%` : "—"}
             </span>
           );
         },
@@ -138,10 +194,7 @@ export default function CardIntelligenceTable() {
         accessorKey: "key_benefits",
         header: "Key Benefits",
         cell: (info) => (
-          <span
-            className="line-clamp-2 text-xs"
-            style={{ color: "#4a6480" }}
-          >
+          <span className="line-clamp-2 text-xs" style={{ color: "#4a6480" }}>
             {info.getValue<string | null>() ?? "—"}
           </span>
         ),
@@ -160,25 +213,81 @@ export default function CardIntelligenceTable() {
   });
 
   return (
-    <Panel title="Market Intelligence">
-      {/* Search + count */}
-      <div className="mb-3 flex items-center justify-between gap-3">
+    <Panel title="Market Intelligence · Card Universe">
+
+      {/* ── Filter bar ──────────────────────────────────────────────────── */}
+      <div className="mb-4 flex flex-wrap items-center gap-2">
+
+        {/* Text search */}
         <input
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          placeholder="Search by bank, card, or benefits…"
-          className="input-dark max-w-xs"
+          placeholder="Search card, bank, or benefits…"
+          className="input-dark"
+          style={{ minWidth: "200px", maxWidth: "240px" }}
         />
-        <p className="hidden shrink-0 text-[11px] sm:block" style={{ color: "#8fa5b8" }}>
-          {filtered.length.toLocaleString("en-US")} cards · UAE market
+
+        {/* Bank dropdown */}
+        <select
+          value={bankFilter}
+          onChange={(e) => setBankFilter(e.target.value)}
+          className="input-dark"
+          style={{ minWidth: "160px" }}
+        >
+          {banks.map((b) => <option key={b} value={b}>{b}</option>)}
+        </select>
+
+        {/* Category dropdown */}
+        <select
+          value={catFilter}
+          onChange={(e) => setCatFilter(e.target.value)}
+          className="input-dark"
+          style={{ minWidth: "160px" }}
+        >
+          {categories.map((c) => (
+            <option key={c} value={c}>
+              {c === ALL_CATS ? c : (CATEGORY_CONFIG[c]?.label ?? c)}
+            </option>
+          ))}
+        </select>
+
+        {/* Fee toggle pills */}
+        <div className="flex rounded-lg overflow-hidden" style={{ border: "1px solid #d1dde9" }}>
+          {(["all", "free", "paid"] as const).map((opt) => (
+            <button
+              key={opt}
+              onClick={() => setFeeFilter(opt)}
+              className="px-3 py-1.5 text-xs font-semibold capitalize transition-colors"
+              style={{
+                background: feeFilter === opt ? "#1e2d3d" : "#ffffff",
+                color:      feeFilter === opt ? "#ffffff"  : "#4a6480",
+                borderRight: opt !== "paid" ? "1px solid #d1dde9" : "none",
+              }}
+            >
+              {opt === "all" ? "All Fees" : opt === "free" ? "No Fee" : "Annual Fee"}
+            </button>
+          ))}
+        </div>
+
+        {/* Clear filters */}
+        {(query || bankFilter !== ALL_BANKS || catFilter !== ALL_CATS || feeFilter !== "all") && (
+          <button
+            onClick={() => { setQuery(""); setBankFilter(ALL_BANKS); setCatFilter(ALL_CATS); setFeeFilter("all"); }}
+            className="text-xs font-semibold"
+            style={{ color: "#e11d48" }}
+          >
+            ✕ Clear
+          </button>
+        )}
+
+        {/* Result count — right-aligned */}
+        <p className="ml-auto hidden shrink-0 text-[11px] sm:block" style={{ color: "#8fa5b8" }}>
+          {filtered.length} of {cards.length} cards
         </p>
       </div>
 
-      {/* Table */}
-      <div
-        className="overflow-hidden rounded-xl"
-        style={{ border: "1px solid #d1dde9" }}
-      >
+      {/* ── Table ───────────────────────────────────────────────────────── */}
+      <div className="overflow-hidden rounded-xl" style={{ border: "1px solid #d1dde9" }}>
         <table className="data-table">
           <thead>
             {table.getHeaderGroups().map((hg) => (
@@ -187,19 +296,17 @@ export default function CardIntelligenceTable() {
                   <th
                     key={header.id}
                     onClick={header.column.getToggleSortingHandler()}
-                    style={{
-                      cursor: header.column.getCanSort() ? "pointer" : "default",
-                    }}
+                    style={{ cursor: header.column.getCanSort() ? "pointer" : "default", userSelect: "none" }}
                   >
                     <span className="flex items-center gap-1">
                       {header.isPlaceholder
                         ? null
-                        : flexRender(
-                            header.column.columnDef.header,
-                            header.getContext()
-                          )}
-                      {header.column.getIsSorted() === "asc" && " ↑"}
-                      {header.column.getIsSorted() === "desc" && " ↓"}
+                        : flexRender(header.column.columnDef.header, header.getContext())}
+                      {header.column.getIsSorted() === "asc"  && <span style={{ color: "#2563eb" }}>↑</span>}
+                      {header.column.getIsSorted() === "desc" && <span style={{ color: "#2563eb" }}>↓</span>}
+                      {!header.column.getIsSorted() && header.column.getCanSort() && (
+                        <span style={{ color: "#d1dde9" }}>↕</span>
+                      )}
                     </span>
                   </th>
                 ))}
@@ -219,14 +326,8 @@ export default function CardIntelligenceTable() {
 
             {table.getRowModel().rows.length === 0 && (
               <tr>
-                <td
-                  colSpan={columns.length}
-                  className="py-8 text-center text-xs"
-                  style={{ color: "#8fa5b8" }}
-                >
-                  {loading
-                    ? "Scanning market data…"
-                    : "No cards found for the current filters."}
+                <td colSpan={columns.length} className="py-8 text-center text-xs" style={{ color: "#8fa5b8" }}>
+                  {loading ? "Scanning market data…" : "No cards match the current filters."}
                 </td>
               </tr>
             )}
@@ -236,4 +337,3 @@ export default function CardIntelligenceTable() {
     </Panel>
   );
 }
-
