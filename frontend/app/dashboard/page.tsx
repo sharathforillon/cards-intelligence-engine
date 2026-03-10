@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { motion } from "framer-motion";
+import Link from "next/link";
 
 import ExecutiveInsight from "@/components/ExecutiveInsight";
 import BattlefieldChart from "@/components/BattlefieldChart";
@@ -250,9 +251,9 @@ function SegmentSummaryWidget() {
         <h2 className="font-heading text-[10px] font-bold uppercase tracking-[0.18em]" style={{ color: "#2d4259" }}>
           Top Segments by Profit
         </h2>
-        <a href="/segments" className="text-[10px] font-semibold" style={{ color: "#2563eb" }}>
+        <Link href="/segments" className="text-[10px] font-semibold" style={{ color: "#2563eb" }}>
           View All →
-        </a>
+        </Link>
       </div>
       <div className="space-y-2">
         {segments.map((seg) => (
@@ -334,9 +335,9 @@ function AIAdvisorWidget() {
         <h2 className="font-heading text-[10px] font-bold uppercase tracking-[0.18em]" style={{ color: "#2d4259" }}>
           AI Strategy Quick Question
         </h2>
-        <a href="/advisor" className="text-[10px] font-semibold" style={{ color: "#2563eb" }}>
+        <Link href="/advisor" className="text-[10px] font-semibold" style={{ color: "#2563eb" }}>
           Full Advisor →
-        </a>
+        </Link>
       </div>
       <div className="flex gap-2">
         <input

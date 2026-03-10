@@ -3,6 +3,7 @@
 import { Inter, Montserrat } from "next/font/google";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
+import Link from "next/link";
 import "./globals.css";
 
 const inter = Inter({
@@ -96,7 +97,7 @@ export default function RootLayout({
                   pathname === item.href ||
                   pathname.startsWith(item.href + "/");
                 return (
-                  <a
+                  <Link
                     key={item.href}
                     href={item.href}
                     style={{
@@ -119,7 +120,7 @@ export default function RootLayout({
                     }}
                   >
                     {item.label}
-                  </a>
+                  </Link>
                 );
               })}
             </nav>
@@ -172,7 +173,7 @@ export default function RootLayout({
                 {NAV_ITEMS.map((item) => {
                   const active = pathname === item.href;
                   return (
-                    <a
+                    <Link
                       key={item.href}
                       href={item.href}
                       className="rounded-xl px-2 py-2.5 text-center"
@@ -189,7 +190,7 @@ export default function RootLayout({
                       onClick={() => setNavOpen(false)}
                     >
                       {item.label}
-                    </a>
+                    </Link>
                   );
                 })}
               </div>

@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import Panel from "@/components/Panel";
+import CacheBar from "@/components/CacheBar";
 import AcquisitionFunnelChart from "@/components/AcquisitionFunnelChart";
+import { useCachedFetch } from "@/hooks/useCachedFetch";
 
 type FunnelMetrics = {
   stages: { stage: string; count: number; conversion_pct: number | null; color: string }[];
@@ -35,45 +36,41 @@ type Efficiency = {
 const API = "http://localhost:8000";
 
 export default function FunnelPage() {
-  const [funnel, setFunnel] = useState<FunnelMetrics | null>(null);
-  const [channels, setChannels] = useState<ChannelRow[]>([]);
-  const [efficiency, setEfficiency] = useState<Efficiency | null>(null);
-  const [loading, setLoading] = useState(true);
+  const { data: funnel,     loading: l1, refresh: r1, fetchedAt: fa1 } = useCachedFetch<FunnelMetrics>(
+    "api:funnel/metrics",
+    () => fetch(`${API}/funnel/metrics`).then((r) => r.json()),
+  );
+  const { data: channelsRaw, loading: l2, refresh: r2 } = useCachedFetch<ChannelRow[]>(
+    "api:funnel/channel-cac",
+    () => fetch(`${API}/funnel/channel-cac`).then((r) => r.json()),
+  );
+  const { data: efficiency,  loading: l3, refresh: r3 } = useCachedFetch<Efficiency>(
+    "api:funnel/efficiency",
+    () => fetch(`${API}/funnel/efficiency`).then((r) => r.json()),
+  );
 
-  useEffect(() => {
-    async function load() {
-      setLoading(true);
-      try {
-        const [f, c, e] = await Promise.all([
-          fetch(`${API}/funnel/metrics`).then((r) => r.json()),
-          fetch(`${API}/funnel/channel-cac`).then((r) => r.json()),
-          fetch(`${API}/funnel/efficiency`).then((r) => r.json()),
-        ]);
-        setFunnel(f);
-        setChannels(c);
-        setEfficiency(e);
-      } catch (err) {
-        console.error("Failed to load funnel data", err);
-      } finally {
-        setLoading(false);
-      }
-    }
-    load();
-  }, []);
+  const channels: ChannelRow[] = channelsRaw ?? [];
+  const loading = l1 || l2 || l3;
+  function refreshAll() { r1(); r2(); r3(); }
 
   return (
     <main style={{ background: "var(--c-bg)", minHeight: "100vh", padding: "28px 32px" }}>
       {/* Header */}
-      <div className="mb-6">
-        <p className="text-[10px] font-bold uppercase tracking-[0.18em]" style={{ color: "#3d5570" }}>
-          Module 6
-        </p>
-        <h1 className="font-heading mt-1 text-xl font-bold" style={{ color: "#1e2d3d" }}>
-          Acquisition Funnel Analytics
-        </h1>
-        <p className="mt-1 text-xs" style={{ color: "#4a6480" }}>
-          End-to-end card issuance funnel with channel-level CAC and acquisition efficiency metrics.
-        </p>
+      <div className="mb-6 flex items-start justify-between">
+        <div>
+          <p className="text-[10px] font-bold uppercase tracking-[0.18em]" style={{ color: "#3d5570" }}>
+            Module 6
+          </p>
+          <h1 className="font-heading mt-1 text-xl font-bold" style={{ color: "#1e2d3d" }}>
+            Acquisition Funnel Analytics
+          </h1>
+          <p className="mt-1 text-xs" style={{ color: "#4a6480" }}>
+            End-to-end card issuance funnel with channel-level CAC and acquisition efficiency metrics.
+          </p>
+        </div>
+        <div className="flex items-center gap-3 pt-1">
+          <CacheBar fetchedAt={fa1} onRefresh={refreshAll} loading={loading} />
+        </div>
       </div>
 
       {/* Funnel chart */}

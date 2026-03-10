@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import Panel from "@/components/Panel";
 import SuggestedPrompts from "@/components/SuggestedPrompts";
+import { useCachedFetch } from "@/hooks/useCachedFetch";
 
 const API = "http://localhost:8000";
 
@@ -19,19 +20,22 @@ type AIMessage = {
   error?: string;
 };
 
+// 24-hour TTL for static suggested prompts
+const PROMPTS_TTL = 24 * 60 * 60 * 1000;
+
 export default function AdvisorPage() {
-  const [prompts, setPrompts] = useState<string[]>([]);
+  // Suggested prompts: cached 24 h — static content that rarely changes
+  const { data: promptsData } = useCachedFetch<string[]>(
+    "api:advisor/suggested-prompts",
+    () => fetch(`${API}/advisor/suggested-prompts`).then((r) => r.json()),
+    PROMPTS_TTL,
+  );
+  const prompts: string[] = promptsData ?? [];
+
   const [messages, setMessages] = useState<AIMessage[]>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    fetch(`${API}/advisor/suggested-prompts`)
-      .then((r) => r.json())
-      .then(setPrompts)
-      .catch(console.error);
-  }, []);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
