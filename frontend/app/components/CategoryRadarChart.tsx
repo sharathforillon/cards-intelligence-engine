@@ -157,9 +157,9 @@ function CustomTooltip({
                 justifyContent: "space-between",
                 alignItems: "center",
                 fontSize: 12,
-                color: i === 0 ? "#be123c" : "#2a4560",
-                fontWeight: i === 0 ? 700 : 500,
-                padding: "2px 0",
+                color: i === 0 ? "#be123c" : i === 1 ? "#1e3a5f" : "#374151",
+                fontWeight: i === 0 ? 700 : 600,
+                padding: "3px 0",
               }}
             >
               <span>
@@ -199,8 +199,8 @@ export default function CategoryRadarChart({ data }: Props) {
   }));
 
   return (
-    <div style={{ height: 280 }}>
-      <ResponsiveContainer width="100%" height="100%">
+    <div style={{ height: 280, overflow: "visible" }}>
+      <ResponsiveContainer width="100%" height="100%" style={{ overflow: "visible" }}>
         <RadarChart data={radarData} margin={{ top: 10, right: 35, bottom: 10, left: 35 }}>
           <PolarGrid stroke="#c4d2e1" />
           <PolarAngleAxis
@@ -234,7 +234,10 @@ export default function CategoryRadarChart({ data }: Props) {
             wrapperStyle={{ fontSize: 12, fontWeight: 600, paddingTop: 8 }}
           />
           {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
-          <Tooltip content={(props: any) => <CustomTooltip {...props} />} />
+          <Tooltip
+            content={(props: any) => <CustomTooltip {...props} />}
+            wrapperStyle={{ zIndex: 9999, overflow: "visible" }}
+          />
         </RadarChart>
       </ResponsiveContainer>
     </div>
