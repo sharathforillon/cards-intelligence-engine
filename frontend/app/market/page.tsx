@@ -15,7 +15,7 @@ export default function MarketPage() {
           Market Intelligence
         </h1>
         <p className="mt-1 text-sm" style={{ color: "#4a6480" }}>
-          UAE credit card landscape · 36 cards across 11 banks · competitive
+          UAE credit card landscape · 35 cards across 11 banks · competitive
           benchmarking &amp; efficient frontier
         </p>
       </div>
