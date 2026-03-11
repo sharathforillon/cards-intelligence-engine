@@ -1,9 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Panel from "@/components/Panel";
 import BattlefieldChart from "@/components/BattlefieldChart";
 import CannibalizationChart from "@/components/CannibalizationChart";
+
+const SIM_HISTORY_KEY = "launch_sim_history";
 
 const API = "http://localhost:8000";
 
@@ -24,6 +26,16 @@ const SEGMENTS = [
   { value: "premium_travelers", label: "Premium Travelers" },
   { value: "category_maximizers", label: "Category Maximizers" },
 ];
+
+type SimSnapshot = {
+  id: string;           // timestamp-based unique id
+  timestamp: string;    // ISO string
+  cardName: string;
+  annualFee: number;
+  baseReward: number;
+  targetSegment: string;
+  result: LaunchResult;
+};
 
 type LaunchResult = {
   card_name: string;
@@ -97,6 +109,16 @@ export default function LaunchPage() {
   const [result, setResult] = useState<LaunchResult | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [history, setHistory] = useState<SimSnapshot[]>([]);
+  const [showHistory, setShowHistory] = useState(false);
+
+  // Load history from localStorage on mount
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem(SIM_HISTORY_KEY);
+      if (stored) setHistory(JSON.parse(stored));
+    } catch { /* ignore */ }
+  }, []);
 
   async function simulate() {
     setLoading(true);
@@ -120,7 +142,24 @@ export default function LaunchPage() {
         body: JSON.stringify(body),
       });
       if (!res.ok) throw new Error(`Server error ${res.status}`);
-      setResult(await res.json());
+      const data: LaunchResult = await res.json();
+      setResult(data);
+
+      // Save to history
+      const snapshot: SimSnapshot = {
+        id: Date.now().toString(),
+        timestamp: new Date().toISOString(),
+        cardName,
+        annualFee,
+        baseReward,
+        targetSegment,
+        result: data,
+      };
+      setHistory((prev) => {
+        const updated = [snapshot, ...prev].slice(0, 20); // keep last 20
+        try { localStorage.setItem(SIM_HISTORY_KEY, JSON.stringify(updated)); } catch { /* ignore */ }
+        return updated;
+      });
     } catch (e) {
       setError(String(e));
     } finally {
@@ -355,6 +394,106 @@ export default function LaunchPage() {
       <div className="mt-6">
         <BattlefieldChart simulatedCard={simulatedCard} />
       </div>
+
+      {/* ── SIMULATION HISTORY ─────────────────────────────────────────── */}
+      {history.length > 0 && (
+        <div className="mt-6">
+          <Panel
+            title={`Simulation History · ${history.length} run${history.length !== 1 ? "s" : ""}`}
+            accent="violet"
+            action={
+              <div className="flex items-center gap-3">
+                <button
+                  className="btn-ghost"
+                  style={{ fontSize: 11 }}
+                  onClick={() => {
+                    if (confirm("Clear all simulation history?")) {
+                      setHistory([]);
+                      localStorage.removeItem(SIM_HISTORY_KEY);
+                    }
+                  }}
+                >
+                  🗑 Clear
+                </button>
+                <button
+                  className="btn-ghost"
+                  style={{ fontSize: 11 }}
+                  onClick={() => setShowHistory(!showHistory)}
+                >
+                  {showHistory ? "▲ Collapse" : "▼ Expand"}
+                </button>
+              </div>
+            }
+          >
+            {/* Always show the 3 most recent; expand for all */}
+            <div className="space-y-2">
+              {(showHistory ? history : history.slice(0, 3)).map((snap) => {
+                const cann = snap.result.cannibalization;
+                const netPositive = cann?.net_positive;
+                const segLabel = SEGMENTS.find((s) => s.value === snap.targetSegment)?.label ?? "All Segments";
+                return (
+                  <div
+                    key={snap.id}
+                    className="rounded-xl p-3"
+                    style={{
+                      background: netPositive ? "rgba(5,150,105,0.04)" : "rgba(225,29,72,0.04)",
+                      border: `1px solid ${netPositive ? "rgba(5,150,105,0.18)" : "rgba(225,29,72,0.18)"}`,
+                    }}
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm font-bold" style={{ color: "#0d1f2f" }}>
+                            {snap.cardName}
+                          </span>
+                          <span
+                            className="rounded-full px-2 py-0.5 text-[9px] font-bold text-white"
+                            style={{ background: netPositive ? "#059669" : "#e11d48" }}
+                          >
+                            {netPositive ? "Net +" : "Net −"}
+                          </span>
+                        </div>
+                        <p className="mt-0.5 text-[10px]" style={{ color: "#4a6480" }}>
+                          AED {snap.annualFee} fee · {snap.baseReward.toFixed(1)}% reward · {segLabel}
+                          {" · "}{new Date(snap.timestamp).toLocaleString("en-AE", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}
+                        </p>
+                      </div>
+                      <div className="flex shrink-0 gap-4 text-right">
+                        <div>
+                          <p className="text-[9px] font-bold uppercase tracking-wide" style={{ color: "#3d5570" }}>Acquisitions</p>
+                          <p className="text-sm font-bold tabular-nums" style={{ color: "#2563eb" }}>
+                            {(cann?.new_card_acquisitions ?? 0).toLocaleString("en-US")}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-[9px] font-bold uppercase tracking-wide" style={{ color: "#3d5570" }}>Net Growth</p>
+                          <p className="text-sm font-bold tabular-nums" style={{ color: netPositive ? "#059669" : "#e11d48" }}>
+                            AED {((cann?.net_portfolio_growth_aed ?? 0) / 1_000_000).toFixed(2)}M
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-[9px] font-bold uppercase tracking-wide" style={{ color: "#3d5570" }}>Mkt Share Δ</p>
+                          <p className="text-sm font-bold tabular-nums" style={{ color: (cann?.market_share_delta_pp ?? 0) > 0 ? "#059669" : "#e11d48" }}>
+                            {(cann?.market_share_delta_pp ?? 0) > 0 ? "+" : ""}{cann?.market_share_delta_pp ?? 0}pp
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+              {!showHistory && history.length > 3 && (
+                <button
+                  className="btn-ghost w-full justify-center text-[11px]"
+                  onClick={() => setShowHistory(true)}
+                >
+                  Show {history.length - 3} more simulations ▼
+                </button>
+              )}
+            </div>
+          </Panel>
+        </div>
+      )}
     </main>
   );
 }

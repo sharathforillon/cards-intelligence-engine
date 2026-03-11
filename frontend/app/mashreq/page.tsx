@@ -59,6 +59,15 @@ type ScrapedCard = {
   fx_markup: number | null;
 };
 
+/* ── Card → Segment mapping ─────────────────────────────────────────────── */
+// Maps scraped Mashreq card names to the best-fit customer segment key
+const CARD_SEGMENT_MAP: Record<string, string> = {
+  "Solitaire":     "affluent_lifestyle",      // AED 1500 fee, lifestyle rewards → Affluent
+  "Platinum Plus": "core_professionals",      // AED 400 fee, dining + travel → Mass Affluent
+  "Cashback":      "salary_bank_customers",   // No fee, online + grocery → Mass Market
+  "noon":          "category_maximizers",     // No fee, noon rewards → Category Maximizers
+};
+
 /* ── Default values ─────────────────────────────────────────────────────── */
 
 const EMPTY_BANK: BankSnapshot = {
@@ -171,9 +180,12 @@ export default function MashreqPortfolioPage() {
   /* ── Card form submit ───────────────────────────────────────────────────── */
   function handleCardSelect(name: string) {
     const card = mashreqCards.find((c) => c.card_name === name);
+    // Auto-select the best-fit segment for this card (falls back to current segment)
+    const autoSegment = CARD_SEGMENT_MAP[name] ?? cardForm.segment;
     setCardForm((f) => ({
       ...f,
       card_name: name,
+      segment: autoSegment,
       annual_fee: card?.annual_fee ?? f.annual_fee,
       reward_rate: card?.cashback_rate ?? f.reward_rate,
       fx_markup: card?.fx_markup ?? f.fx_markup,
@@ -453,12 +465,11 @@ export default function MashreqPortfolioPage() {
                       value={cardForm.segment}
                       onChange={(v) => setCardForm((f) => ({ ...f, segment: v }))}
                       options={[
-                        { value: "salary_bank_customers", label: "Salary Bank Customers" },
-                        { value: "salaried_non_bank",     label: "Salaried – Non-Bank" },
-                        { value: "self_employed",          label: "Self-Employed" },
-                        { value: "high_net_worth",         label: "High Net Worth" },
-                        { value: "expat_premium",          label: "Expat Premium" },
-                        { value: "mass_market",            label: "Mass Market" },
+                        { value: "salary_bank_customers", label: "Mass Market · Salary Bank Customers" },
+                        { value: "core_professionals",    label: "Mass Affluent · Core Professionals" },
+                        { value: "affluent_lifestyle",    label: "Affluent · Lifestyle Spenders" },
+                        { value: "premium_travelers",     label: "Premium · High-Spend Travelers" },
+                        { value: "category_maximizers",   label: "Category Maximizers" },
                       ]}
                     />
                   </BSection>

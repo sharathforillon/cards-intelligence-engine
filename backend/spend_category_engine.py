@@ -93,14 +93,15 @@ class SpendCategoryEngine:
 
         return category_bank_rates
 
-    def _mashreq_rate_for_category(self, category: str) -> float:
-        """Get Mashreq's effective rate for a specific category."""
+    def _mashreq_rate_and_card_for_category(self, category: str) -> tuple[float, str]:
+        """Get Mashreq's best effective rate and the card achieving it for a category."""
         cards = (
             self.db.query(CompetitorCard)
             .filter(CompetitorCard.bank_name == MASHREQ_BANK)
             .all()
         )
         best = 0.0
+        best_card = ""
         for card in cards:
             cb = card.cashback_rate
             if not isinstance(cb, dict):
@@ -113,7 +114,13 @@ class SpendCategoryEngine:
             effective = rate if rate is not None else base
             if effective > best:
                 best = effective
-        return best
+                best_card = card.card_name or ""
+        return best, best_card
+
+    def _mashreq_rate_for_category(self, category: str) -> float:
+        """Get Mashreq's effective rate for a specific category."""
+        rate, _ = self._mashreq_rate_and_card_for_category(category)
+        return rate
 
     def compute_category_metrics(self) -> list[dict]:
         """
@@ -131,7 +138,7 @@ class SpendCategoryEngine:
 
         for cat, spend_share in CATEGORY_SPEND_SHARES.items():
             bank_rates = all_rates[cat]
-            mashreq_rate = self._mashreq_rate_for_category(cat)
+            mashreq_rate, mashreq_card = self._mashreq_rate_and_card_for_category(cat)
 
             # Aggregate: best rate per bank, tracking which card achieved it
             best_per_bank: dict[str, tuple[float, str]] = {}
@@ -174,6 +181,7 @@ class SpendCategoryEngine:
                 "color": meta["color"],
                 "spend_share": spend_share,
                 "mashreq_rate": round(mashreq_rate, 4),
+                "mashreq_card": mashreq_card,               # Mashreq's best card for this category
                 "market_leader_rate": round(market_leader_rate, 4),
                 "market_leader_bank": market_leader_bank,
                 "market_leader_card": market_leader_card,   # specific winning card

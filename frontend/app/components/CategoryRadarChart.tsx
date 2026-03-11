@@ -15,6 +15,7 @@ type CategoryMetric = {
   key?: string;
   label: string;
   mashreq_rate: number;
+  mashreq_card?: string;
   market_leader_rate: number;
   market_leader_bank: string;
   market_leader_card?: string;
@@ -41,7 +42,8 @@ function CustomTooltip({
   if (!active || !payload?.length) return null;
 
   const item = payload[0]?.payload ?? {};
-  const mashreqVal = (item.Mashreq ?? 0) as number;
+  const mashreqVal  = (item.Mashreq ?? 0) as number;
+  const mashreqCard = (item.mashreq_card ?? "") as string;
   const leaderVal  = (item["Market Leader"] ?? 0) as number;
   const leaderBank = (item.market_leader_bank ?? "") as string;
   const leaderCard = (item.market_leader_card ?? "") as string;
@@ -69,20 +71,24 @@ function CustomTooltip({
       {/* Mashreq row */}
       <div
         style={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
           marginBottom: 6,
-          padding: "6px 10px",
+          padding: "8px 10px",
           borderRadius: 8,
           background: "rgba(29,86,219,0.07)",
           border: "1px solid rgba(29,86,219,0.20)",
         }}
       >
-        <span style={{ color: "#1d56db", fontWeight: 700, fontSize: 12 }}>🔵 Mashreq</span>
-        <span style={{ color: "#1d56db", fontWeight: 800, fontSize: 14 }}>
-          {(mashreqVal * 100).toFixed(1)}%
-        </span>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: mashreqCard ? 3 : 0 }}>
+          <span style={{ color: "#1d56db", fontWeight: 700, fontSize: 12 }}>🔵 Mashreq</span>
+          <span style={{ color: "#1d56db", fontWeight: 800, fontSize: 14 }}>
+            {(mashreqVal * 100).toFixed(1)}%
+          </span>
+        </div>
+        {mashreqCard && (
+          <p style={{ color: "#1d4ed8", fontSize: 11, fontWeight: 600, margin: 0, opacity: 0.85 }}>
+            {mashreqCard}
+          </p>
+        )}
       </div>
 
       {/* Market Leader row — shows bank + card */}
@@ -193,6 +199,7 @@ export default function CategoryRadarChart({ data }: Props) {
     Mashreq: d.mashreq_rate,
     "Market Leader": d.market_leader_rate,
     // Extra fields surfaced in payload.payload for CustomTooltip
+    mashreq_card: d.mashreq_card ?? "",
     market_leader_bank: d.market_leader_bank,
     market_leader_card: d.market_leader_card ?? "",
     top_3_banks: d.top_3_banks ?? [],

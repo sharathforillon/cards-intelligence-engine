@@ -13,6 +13,7 @@ type SegmentRow = {
   tier: string;
   tier_badge_color: string;
   tier_color: string;
+  cards: string[];
   cards_issued: number;
   profit_per_customer: number;
   lifetime_value: number;
@@ -28,6 +29,7 @@ type ChurnRow = {
   label: string;
   icon: string;
   tier_color: string;
+  cards: string[];
   churn_rate: number;
   cards_at_risk_annually: number;
   revenue_at_risk_aed: number;
@@ -197,6 +199,25 @@ export default function SegmentsPage() {
                   </div>
                 </div>
 
+                {/* Card products */}
+                {seg.cards && seg.cards.length > 0 && (
+                  <div className="px-3 pb-2 pt-1 flex flex-wrap gap-1.5">
+                    {seg.cards.map((c) => (
+                      <span
+                        key={c}
+                        className="rounded-full px-2 py-0.5 text-[10px] font-semibold"
+                        style={{
+                          background: `${seg.tier_color}12`,
+                          border: `1px solid ${seg.tier_color}30`,
+                          color: seg.tier_color,
+                        }}
+                      >
+                        💳 {c}
+                      </span>
+                    ))}
+                  </div>
+                )}
+
                 {/* Metrics grid */}
                 <div className="grid grid-cols-2 gap-px p-3" style={{ gap: 8 }}>
                   {[
@@ -303,6 +324,23 @@ export default function SegmentsPage() {
                         {row.cards_at_risk_annually.toLocaleString("en-US")} cards · {(row.churn_rate * 100).toFixed(0)}% churn
                       </p>
                     </div>
+                    {row.cards && row.cards.length > 0 && (
+                      <div className="mt-1.5 flex flex-wrap gap-1">
+                        {row.cards.map((c) => (
+                          <span
+                            key={c}
+                            className="rounded-full px-1.5 py-0.5 text-[9px] font-semibold"
+                            style={{
+                              background: `${row.risk_color}0f`,
+                              border: `1px solid ${row.risk_color}25`,
+                              color: row.risk_color,
+                            }}
+                          >
+                            💳 {c}
+                          </span>
+                        ))}
+                      </div>
+                    )}
                     <p className="mt-1 text-[10px] font-medium" style={{ color: "#2d4a62" }}>
                       💡 {row.recommended_action}
                     </p>

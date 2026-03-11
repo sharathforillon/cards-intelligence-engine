@@ -2,6 +2,9 @@ from fastapi import FastAPI, Body, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
+import asyncio
+import threading
+from datetime import datetime, timezone
 
 from backend.database import SessionLocal, init_db
 from backend.config import load_bank_config
@@ -638,3 +641,83 @@ def advisor_chat(input: AdvisorChatInput, db: Session = Depends(get_db)):
 def executive_quarterly_memo(db: Session = Depends(get_db)):
     engine = ExecutiveReportEngine(db, config)
     return engine.generate_quarterly_memo()
+
+
+# ============================================================
+# SCRAPER MANAGEMENT
+# ============================================================
+
+# In-process scraper state
+_scraper_state = {
+    "running": False,
+    "started_at": None,       # ISO string when current/last run started
+    "finished_at": None,      # ISO string when last run completed
+    "cards_found": 0,
+    "error": None,
+}
+
+
+def _run_scraper_in_thread():
+    """Run the async scraper inside a dedicated event loop on a background thread."""
+    import asyncio
+    from backend.scraper import run_scraper
+    from backend.database import SessionLocal
+
+    _scraper_state["running"] = True
+    _scraper_state["started_at"] = datetime.now(timezone.utc).isoformat()
+    _scraper_state["error"] = None
+
+    try:
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        loop.run_until_complete(run_scraper())
+        loop.close()
+
+        # Count cards after scrape
+        db = SessionLocal()
+        try:
+            from backend.models import CompetitorCard as CC
+            _scraper_state["cards_found"] = db.query(CC).count()
+        finally:
+            db.close()
+    except Exception as e:
+        _scraper_state["error"] = str(e)
+    finally:
+        _scraper_state["running"] = False
+        _scraper_state["finished_at"] = datetime.now(timezone.utc).isoformat()
+
+
+@app.post("/scraper/run")
+def scraper_run():
+    """Trigger a background scrape of all bank card pages."""
+    if _scraper_state["running"]:
+        return {"status": "already_running", "started_at": _scraper_state["started_at"]}
+
+    t = threading.Thread(target=_run_scraper_in_thread, daemon=True)
+    t.start()
+    return {"status": "started", "started_at": _scraper_state["started_at"]}
+
+
+@app.get("/scraper/status")
+def scraper_status(db: Session = Depends(get_db)):
+    """Return current scraper status + last-scraped timestamp from DB."""
+    from backend.models import CompetitorCard as CC
+    from sqlalchemy import func
+
+    # Latest last_updated across all cards
+    try:
+        latest = db.query(func.max(CC.last_updated)).scalar()
+        last_scraped = latest.isoformat() if latest else None
+    except Exception:
+        last_scraped = None
+
+    total_cards = db.query(CC).count()
+
+    return {
+        "running": _scraper_state["running"],
+        "started_at": _scraper_state["started_at"],
+        "finished_at": _scraper_state["finished_at"],
+        "error": _scraper_state["error"],
+        "cards_in_db": total_cards,
+        "last_scraped_at": last_scraped,   # from DB if available
+    }

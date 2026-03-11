@@ -1,11 +1,14 @@
 "use client";
 
 import Link from "next/link";
+import { useState, useEffect, useCallback } from "react";
 import CardIntelligenceTable from "../components/CardIntelligenceTable";
 import BattlefieldChart from "../components/BattlefieldChart";
 import Panel from "../components/Panel";
 import { useCachedFetch } from "@/hooks/useCachedFetch";
 import CacheBar from "@/components/CacheBar";
+
+const API = "http://localhost:8000";
 
 type CategoryMetric = {
   key: string;
@@ -203,21 +206,126 @@ function CategoryStrengthPanel() {
   );
 }
 
+// ── Scraper Control ────────────────────────────────────────────────────────────
+type ScraperStatus = {
+  running: boolean;
+  started_at: string | null;
+  finished_at: string | null;
+  error: string | null;
+  cards_in_db: number;
+  last_scraped_at: string | null;
+};
+
+function ScraperControl() {
+  const [status, setStatus] = useState<ScraperStatus | null>(null);
+  const [triggering, setTriggering] = useState(false);
+
+  const fetchStatus = useCallback(async () => {
+    try {
+      const data = await fetch(`${API}/scraper/status`).then((r) => r.json());
+      setStatus(data);
+    } catch { /* ignore */ }
+  }, []);
+
+  // Poll every 5 s while running
+  useEffect(() => {
+    fetchStatus();
+    const id = setInterval(() => {
+      fetchStatus();
+    }, 5000);
+    return () => clearInterval(id);
+  }, [fetchStatus]);
+
+  async function triggerScrape() {
+    setTriggering(true);
+    try {
+      await fetch(`${API}/scraper/run`, { method: "POST" });
+      await fetchStatus();
+    } catch { /* ignore */ }
+    finally { setTriggering(false); }
+  }
+
+  function fmtDate(iso: string | null) {
+    if (!iso) return "—";
+    const d = new Date(iso);
+    return d.toLocaleString("en-AE", {
+      month: "short", day: "numeric", hour: "2-digit", minute: "2-digit",
+    });
+  }
+
+  const running = status?.running ?? false;
+  const lastScraped = status?.last_scraped_at ?? status?.finished_at ?? null;
+  const cardsInDb = status?.cards_in_db ?? 0;
+
+  return (
+    <div
+      className="flex flex-wrap items-center gap-3 rounded-xl px-4 py-2.5"
+      style={{
+        background: running ? "rgba(37,99,235,0.07)" : "rgba(5,150,105,0.06)",
+        border: `1px solid ${running ? "rgba(37,99,235,0.22)" : "rgba(5,150,105,0.18)"}`,
+      }}
+    >
+      {/* Status indicator */}
+      <div className="flex items-center gap-2">
+        {running ? (
+          <span className="dot-pulse h-2 w-2 rounded-full" style={{ background: "#2563eb" }} />
+        ) : (
+          <span className="h-2 w-2 rounded-full" style={{ background: "#059669" }} />
+        )}
+        <span className="text-[11px] font-bold" style={{ color: running ? "#2563eb" : "#059669" }}>
+          {running ? "Scraping in progress…" : `${cardsInDb} cards indexed`}
+        </span>
+      </div>
+
+      {/* Last scraped */}
+      {!running && (
+        <span className="text-[10px]" style={{ color: "#4a6480" }}>
+          Last scraped: <strong style={{ color: "#1e2d3d" }}>{fmtDate(lastScraped)}</strong>
+        </span>
+      )}
+
+      {/* Error */}
+      {status?.error && (
+        <span className="text-[10px] font-semibold" style={{ color: "#e11d48" }}>
+          ⚠ {status.error.slice(0, 60)}
+        </span>
+      )}
+
+      {/* Trigger button */}
+      <button
+        className="btn-primary ml-auto shrink-0"
+        style={{ fontSize: 11, padding: "5px 12px" }}
+        onClick={triggerScrape}
+        disabled={running || triggering}
+      >
+        {running ? "Running…" : triggering ? "Starting…" : "↺ Scrape Now"}
+      </button>
+    </div>
+  );
+}
+
 // ── Market Page ────────────────────────────────────────────────────────────────
 export default function MarketPage() {
   return (
     <main className="mx-auto max-w-screen-2xl px-4 py-6 sm:px-6 lg:px-8">
       {/* Page header */}
+      <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <h1
+            className="font-heading text-2xl font-bold tracking-tight"
+            style={{ color: "#1e2d3d" }}
+          >
+            Market Intelligence
+          </h1>
+          <p className="mt-1 text-sm" style={{ color: "#4a6480" }}>
+            UAE credit card landscape · competitive benchmarking, efficient frontier &amp; category strength.
+          </p>
+        </div>
+      </div>
+
+      {/* Scraper control bar */}
       <div className="mb-6">
-        <h1
-          className="font-heading text-2xl font-bold tracking-tight"
-          style={{ color: "#1e2d3d" }}
-        >
-          Market Intelligence
-        </h1>
-        <p className="mt-1 text-sm" style={{ color: "#4a6480" }}>
-          UAE credit card landscape · competitive benchmarking, efficient frontier &amp; category strength.
-        </p>
+        <ScraperControl />
       </div>
 
       {/* Battlefield chart (frontier) */}
