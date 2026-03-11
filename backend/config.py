@@ -1,7 +1,10 @@
 import os
+from pathlib import Path
 from dotenv import load_dotenv
 
-load_dotenv()
+# Load .env from the project root regardless of the current working directory
+_project_root = Path(__file__).resolve().parent.parent
+load_dotenv(dotenv_path=_project_root / ".env", override=True)
 
 # ------------------------------------------------
 # API KEYS

@@ -17,4 +17,4 @@ npm-debug.log*
 
 # OS
 .DS_Store
-Thumbs.db
+Thumbs.dbscraper_state.json

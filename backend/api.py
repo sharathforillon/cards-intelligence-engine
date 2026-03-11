@@ -4,6 +4,8 @@ from sqlalchemy.orm import Session
 from pydantic import BaseModel
 import asyncio
 import threading
+import json
+from pathlib import Path
 from datetime import datetime, timezone
 
 from backend.database import SessionLocal, init_db
@@ -647,25 +649,62 @@ def executive_quarterly_memo(db: Session = Depends(get_db)):
 # SCRAPER MANAGEMENT
 # ============================================================
 
-# In-process scraper state
-_scraper_state = {
+# ── Persistent scraper state ─────────────────────────────────────────────────
+# State is written to disk so it survives browser closes, tab refreshes, and
+# even full server restarts.  On startup the file is read back automatically.
+
+_STATE_FILE = Path(__file__).resolve().parent.parent / "scraper_state.json"
+
+_scraper_state: dict = {
     "running": False,
-    "started_at": None,       # ISO string when current/last run started
-    "finished_at": None,      # ISO string when last run completed
+    "started_at": None,
+    "finished_at": None,
     "cards_found": 0,
     "error": None,
 }
 
 
-def _run_scraper_in_thread():
-    """Run the async scraper inside a dedicated event loop on a background thread."""
-    import asyncio
+def _load_scraper_state() -> None:
+    """Read persisted state from disk.  Called once at import time."""
+    try:
+        if _STATE_FILE.exists():
+            data = json.loads(_STATE_FILE.read_text())
+            # If the server died while a scrape was in progress, correct it.
+            if data.get("running"):
+                data["running"] = False
+                data["error"] = "Server restarted during scrape — please re-run."
+                data["finished_at"] = datetime.now(timezone.utc).isoformat()
+            _scraper_state.update(data)
+    except Exception:
+        pass  # fall back to defaults
+
+
+def _save_scraper_state() -> None:
+    """Write current state to disk so it outlives this process."""
+    try:
+        _STATE_FILE.write_text(json.dumps(_scraper_state, indent=2))
+    except Exception:
+        pass
+
+
+# Restore state immediately when the module is loaded
+_load_scraper_state()
+
+
+def _run_scraper_in_thread() -> None:
+    """
+    Run the async scraper inside a dedicated event loop on a non-daemon
+    background thread.  Using daemon=False means the thread will finish
+    even if the FastAPI process receives SIGTERM — the OS will not kill it
+    until the scrape completes or the machine shuts down.
+    """
     from backend.scraper import run_scraper
     from backend.database import SessionLocal
 
     _scraper_state["running"] = True
     _scraper_state["started_at"] = datetime.now(timezone.utc).isoformat()
     _scraper_state["error"] = None
+    _save_scraper_state()   # persist "running" immediately
 
     try:
         loop = asyncio.new_event_loop()
@@ -673,7 +712,6 @@ def _run_scraper_in_thread():
         loop.run_until_complete(run_scraper())
         loop.close()
 
-        # Count cards after scrape
         db = SessionLocal()
         try:
             from backend.models import CompetitorCard as CC
@@ -685,6 +723,7 @@ def _run_scraper_in_thread():
     finally:
         _scraper_state["running"] = False
         _scraper_state["finished_at"] = datetime.now(timezone.utc).isoformat()
+        _save_scraper_state()   # persist final state
 
 
 @app.post("/scraper/run")
@@ -693,7 +732,8 @@ def scraper_run():
     if _scraper_state["running"]:
         return {"status": "already_running", "started_at": _scraper_state["started_at"]}
 
-    t = threading.Thread(target=_run_scraper_in_thread, daemon=True)
+    # daemon=False → thread keeps running even if the server receives SIGTERM
+    t = threading.Thread(target=_run_scraper_in_thread, daemon=False)
     t.start()
     return {"status": "started", "started_at": _scraper_state["started_at"]}
 
