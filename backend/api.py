@@ -102,7 +102,8 @@ class ProductLaunchInput(BaseModel):
 class CannibalizationInput(BaseModel):
     reward_rate: float
     annual_fee: int = 200
-    features_strength: float = 0.65
+    features_strength: float = 0.65   # kept for backwards compat
+    benefits_strength: float = 0.65   # alias used by ProductLaunchInput
     target_segment: str | None = None
     category_rewards: dict | None = None
 
@@ -1027,10 +1028,13 @@ def simulate_product_launch(input: ProductLaunchInput, db: Session = Depends(get
 @app.post("/cannibalization/simulate")
 def cannibalization_simulate(input: CannibalizationInput, db: Session = Depends(get_db)):
     engine = CannibalizationEngine(db, config)
+    # Use the effective (blended) reward rate so category-reward cards are
+    # properly positioned in the market-game utility function.
+    effective_rr = _effective_reward_rate(input.reward_rate, input.category_rewards or {})
     params = {
-        "reward_rate": input.reward_rate,
+        "reward_rate": effective_rr,
         "annual_fee": input.annual_fee,
-        "features_strength": input.features_strength,
+        "features_strength": input.benefits_strength or input.features_strength or 0.65,
         "target_segment": input.target_segment,
         "category_rewards": input.category_rewards or {},
     }

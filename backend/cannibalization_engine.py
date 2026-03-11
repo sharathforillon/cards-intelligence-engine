@@ -81,13 +81,19 @@ class CannibalizationEngine:
         return self.market_sim.simulate_market(strategies)
 
     def _market_share_with_new(self, existing_cards, new_params):
-        """Compute Mashreq market share with new card added."""
+        """Compute Mashreq market share with new card added to the portfolio.
+
+        The new card is merged with the best existing card to represent the
+        improved Mashreq offer in the market game. Both 'features_strength'
+        and 'benefits_strength' key names are accepted.
+        """
         strategies = dict(DEFAULT_COMPETITOR_STRATEGIES)
         best_mashreq = max(existing_cards, key=lambda c: c["reward_rate"])
+        new_features = new_params.get("features_strength") or new_params.get("benefits_strength") or 0.65
         strategies["Mashreq"] = {
             "reward": max(best_mashreq["reward_rate"], new_params["reward_rate"]),
             "fee": min(best_mashreq["annual_fee"], new_params.get("annual_fee", 200)),
-            "features": max(0.65, new_params.get("features_strength", 0.65)),
+            "features": max(0.65, float(new_features)),
         }
         return self.market_sim.simulate_market(strategies)
 
