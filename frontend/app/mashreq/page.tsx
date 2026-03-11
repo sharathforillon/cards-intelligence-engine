@@ -432,6 +432,9 @@ export default function MashreqPortfolioPage() {
             </div>
           )}
 
+          {/* ── Risk & P&L Heatmap ─────────────────────────────────────── */}
+          {records.length > 0 && <RiskHeatmap records={records} />}
+
           <div className="mt-4 grid gap-6 xl:grid-cols-12">
 
             {/* Card-level form */}
@@ -769,6 +772,99 @@ function Stat({ label, value, color = "#4a6480" }: { label: string; value: strin
     <div>
       <p className="mb-0.5 text-[10px] uppercase tracking-wide font-semibold" style={{ color: "#3d5570" }}>{label}</p>
       <p className="font-semibold tabular-nums text-xs" style={{ color }}>{value}</p>
+    </div>
+  );
+}
+
+/* ── Risk & P&L Heatmap ─────────────────────────────────────────────────── */
+
+function RiskHeatmap({ records }: { records: PortfolioCard[] }) {
+  // Thresholds for traffic-light coloring
+  function nplColor(v: number) { return v > 0.04 ? "#e11d48" : v > 0.02 ? "#d97706" : "#059669"; }
+  function dpd30Color(v: number) { return v > 0.06 ? "#e11d48" : v > 0.03 ? "#d97706" : "#059669"; }
+  function revolveColor(v: number) { return v > 0.40 ? "#e11d48" : v > 0.30 ? "#d97706" : "#059669"; }
+  function cirColor(v: number) { return v > 90 ? "#e11d48" : v > 75 ? "#d97706" : "#059669"; }
+  function profitColor(v: number) { return v < 0 ? "#e11d48" : v < 500000 ? "#d97706" : "#059669"; }
+
+  return (
+    <div className="mt-5">
+      <div className="mb-2 flex items-center gap-2">
+        <h3 className="text-[11px] font-bold uppercase tracking-[0.18em]" style={{ color: "#0d1f2f" }}>
+          Risk &amp; P&L Heatmap · Per Card
+        </h3>
+        <span className="text-[10px]" style={{ color: "#6b7280" }}>
+          🟢 OK &nbsp; 🟡 Watch &nbsp; 🔴 Action required
+        </span>
+      </div>
+
+      <div className="overflow-auto rounded-xl" style={{ border: "1px solid #d1dde9" }}>
+        <table className="data-table">
+          <thead>
+            <tr>
+              <th>Card</th>
+              <th style={{ textAlign: "right" }}>Active Cards</th>
+              <th style={{ textAlign: "right" }}>Net Rev/Mo</th>
+              <th style={{ textAlign: "right" }}>CIR %</th>
+              <th style={{ textAlign: "right" }}>NPL %</th>
+              <th style={{ textAlign: "right" }}>30-DPD %</th>
+              <th style={{ textAlign: "right" }}>Revolve %</th>
+              <th style={{ textAlign: "right" }}>Util %</th>
+              <th style={{ textAlign: "right" }}>CAC (AED)</th>
+            </tr>
+          </thead>
+          <tbody>
+            {records.map((r) => {
+              const netRev = r.interchange_income + r.interest_income - r.reward_cost - r.credit_loss;
+              const cir    = (r.reward_cost + r.credit_loss) / Math.max(r.interchange_income + r.interest_income, 1) * 100;
+              return (
+                <tr key={r.id}>
+                  <td style={{ fontWeight: 700, color: "#1e2d3d" }}>
+                    {r.card_name}
+                    {netRev < 0 && (
+                      <span className="ml-2 rounded-full px-1.5 py-0.5 text-[9px] font-bold text-white" style={{ background: "#e11d48" }}>
+                        LOSS
+                      </span>
+                    )}
+                  </td>
+                  <td style={{ textAlign: "right", color: "#2d4a62" }}>{r.active_cards.toLocaleString("en-US")}</td>
+                  <td style={{ textAlign: "right", fontWeight: 700, color: profitColor(netRev) }}>
+                    {netRev >= 0 ? "+" : ""}AED {fmt(netRev)}
+                  </td>
+                  <td style={{ textAlign: "right", fontWeight: 600, color: cirColor(cir) }}>
+                    {cir.toFixed(1)}%
+                  </td>
+                  <td style={{ textAlign: "right", fontWeight: 600, color: nplColor(r.npl_rate) }}>
+                    {(r.npl_rate * 100).toFixed(2)}%
+                  </td>
+                  <td style={{ textAlign: "right", fontWeight: 600, color: dpd30Color(r.delinquency_30dpd) }}>
+                    {(r.delinquency_30dpd * 100).toFixed(2)}%
+                  </td>
+                  <td style={{ textAlign: "right", fontWeight: 600, color: revolveColor(r.revolve_rate) }}>
+                    {(r.revolve_rate * 100).toFixed(1)}%
+                  </td>
+                  <td style={{ textAlign: "right", color: "#2d4a62" }}>
+                    {(r.utilization_rate * 100).toFixed(1)}%
+                  </td>
+                  <td style={{ textAlign: "right", color: "#7c3aed" }}>
+                    {r.cac_cost.toFixed(0)}
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+
+      {/* Alert for loss-making cards */}
+      {records.some((r) => r.interchange_income + r.interest_income - r.reward_cost - r.credit_loss < 0) && (
+        <div className="mt-3 rounded-xl px-4 py-3 text-xs" style={{
+          background: "rgba(225,29,72,0.06)", border: "1px solid rgba(225,29,72,0.18)", color: "#b91c1c"
+        }}>
+          <strong>⚠ Loss-making product alert:</strong> One or more cards show negative monthly net revenue (interchange + interest
+          &lt; reward cost + credit loss). Immediate pricing review recommended — consider increasing annual fee or reducing reward
+          rate to restore profitability.
+        </div>
+      )}
     </div>
   );
 }
