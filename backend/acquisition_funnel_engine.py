@@ -43,44 +43,42 @@ class AcquisitionFunnelEngine:
     # ── Helpers ────────────────────────────────────────────────────────────
 
     def _portfolio_totals(self):
+        """
+        Aggregate Mashreq card performance data from the database.
+        Returns None when no records are present — callers must handle None
+        and return empty / null responses rather than hardcoded fallbacks.
+        """
         records = self.db.query(MashreqCardPerformance).all()
         if not records:
-            # Return illustrative baseline if no data seeded
-            return {
-                "total_ntb":          2_400,
-                "total_etb":          1_200,
-                "total_active":       50_000,
-                "total_enr":          65_000,
-                "avg_activation":     0.77,
-                "blended_cac":        650,
-            }
-        total_ntb = sum(r.acquisition_ntb or 0 for r in records)
-        total_etb = sum(r.acquisition_etb or 0 for r in records)
-        total_active = sum(r.active_cards or 0 for r in records)
-        total_enr = sum(r.total_enr or 0 for r in records)
-        total_cac = sum(r.cac_cost or 0 for r in records)
-        avg_activation = (
-            sum((r.activation_rate or 0) for r in records) / len(records)
-            if records else 0.77
-        )
-        blended_cac = total_cac / len(records) if records else 650
+            return None
+        total_ntb    = sum(r.acquisition_ntb  or 0 for r in records)
+        total_etb    = sum(r.acquisition_etb  or 0 for r in records)
+        total_active = sum(r.active_cards      or 0 for r in records)
+        total_enr    = sum(r.total_enr         or 0 for r in records)
+        total_cac    = sum(r.cac_cost          or 0 for r in records)
+        avg_activation = sum((r.activation_rate or 0) for r in records) / len(records)
+        blended_cac    = total_cac / len(records)
         return {
-            "total_ntb": total_ntb,
-            "total_etb": total_etb,
-            "total_active": total_active,
-            "total_enr": total_enr,
+            "total_ntb":      total_ntb,
+            "total_etb":      total_etb,
+            "total_active":   total_active,
+            "total_enr":      total_enr,
             "avg_activation": avg_activation,
-            "blended_cac": blended_cac,
+            "blended_cac":    blended_cac,
         }
 
     # ── Main methods ───────────────────────────────────────────────────────
 
-    def compute_funnel_metrics(self) -> dict:
+    def compute_funnel_metrics(self) -> dict | None:
         """
         Return funnel stages and conversion rates.
         Applications are back-calculated from approved cards.
+        Returns None when no portfolio data is available.
         """
         t = self._portfolio_totals()
+        if t is None:
+            logger.warning("compute_funnel_metrics: no MashreqCardPerformance records — returning null")
+            return None
 
         total_issued = t["total_ntb"] + t["total_etb"]
         total_approvals = total_issued                       # 1:1 issue:approve
@@ -138,9 +136,13 @@ class AcquisitionFunnelEngine:
     def compute_channel_cac(self) -> list[dict]:
         """
         Return CAC and estimated volume by acquisition channel.
+        Returns empty list when no portfolio data is available.
         """
         t = self._portfolio_totals()
-        blended = t["blended_cac"] if t["blended_cac"] > 0 else 650
+        if t is None:
+            logger.warning("compute_channel_cac: no MashreqCardPerformance records — returning []")
+            return []
+        blended = t["blended_cac"] if t["blended_cac"] > 0 else 0
         total_issued = max(t["total_ntb"] + t["total_etb"], 1)
 
         channels = []
@@ -161,13 +163,17 @@ class AcquisitionFunnelEngine:
         channels.sort(key=lambda x: x["cac_aed"])
         return channels
 
-    def compute_acquisition_efficiency(self) -> dict:
+    def compute_acquisition_efficiency(self) -> dict | None:
         """
         Returns efficiency score, payback period, and blended CAC.
+        Returns None when no portfolio data is available.
         """
         t = self._portfolio_totals()
+        if t is None:
+            logger.warning("compute_acquisition_efficiency: no MashreqCardPerformance records — returning null")
+            return None
         total_issued = max(t["total_ntb"] + t["total_etb"], 1)
-        blended_cac = t["blended_cac"] if t["blended_cac"] > 0 else 650
+        blended_cac = t["blended_cac"] if t["blended_cac"] > 0 else 0
 
         # Monthly profit per card (simplified: interchange on avg spend)
         avg_monthly_spend = getattr(self.config, "avg_monthly_spend", 3500) if self.config else 3500
