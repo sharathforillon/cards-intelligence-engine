@@ -170,36 +170,127 @@ def strategy_optimizer(db: Session = Depends(get_db)):
 
 @app.get("/cards")
 def get_cards(db: Session = Depends(get_db)):
-
+    """
+    Return the full card intelligence dataset.
+    All 60+ attributes per card are included so the frontend can render
+    rich detail drawers without additional API calls.
+    """
     cards = db.query(CompetitorCard).all()
-
     results = []
 
     for c in cards:
-
-        # cashback_rate is stored as JSON dict; extract base rate as a scalar
+        # Normalise cashback_rate: always return both the raw dict AND a scalar
         cb = c.cashback_rate
         if isinstance(cb, dict):
             cashback_scalar = cb.get("base") or next(iter(cb.values()), None)
         elif isinstance(cb, (int, float)):
             cashback_scalar = float(cb)
+            cb = {"base": cashback_scalar}
         else:
             cashback_scalar = None
+            cb = None
 
         results.append({
-
-            "card_name": c.card_name,
-            "bank": c.bank_name,
-            "network": c.network,
-            "annual_fee": c.annual_fee,
-            "cashback_rate": cashback_scalar,
-            "miles_rate": c.miles_rate,
-            "welcome_bonus": c.welcome_bonus,
-            "fx_markup": c.fx_markup,
-            "min_salary": c.min_salary,
+            # ── Core identity ───────────────────────────────────────────────
+            "id":              c.id,
+            "bank":            c.bank_name,
+            "card_name":       c.card_name,
+            "network":         c.network,
+            "product_type":    c.product_type,
+            "category":        c.card_category,
+            "card_tier":       c.card_tier,
+            "target_segment":  c.target_segment,
+            "is_islamic":      c.is_islamic,
+            "is_cobrand":      c.is_cobrand,
+            # ── Fees ─────────────────────────────────────────────────────────
+            "annual_fee":                  c.annual_fee,
+            "annual_fee_waiver_condition": c.annual_fee_waiver_condition,
+            "joining_fee":                 c.joining_fee,
+            "supplementary_card_fee":      c.supplementary_card_fee,
+            "late_payment_fee":            c.late_payment_fee,
+            "overlimit_fee":               c.overlimit_fee,
+            # ── Eligibility ──────────────────────────────────────────────────
+            "min_salary":              c.min_salary,
+            "min_income_annual":       c.min_income_annual,
+            "nationality_eligibility": c.nationality_eligibility,
+            "employment_type":         c.employment_type,
+            "min_age":                 c.min_age,
+            # ── Rewards ──────────────────────────────────────────────────────
+            "reward_type":               c.reward_type,
+            "cashback_rate":             cashback_scalar,
+            "cashback_rate_detail":      cb,
+            "base_reward_rate":          c.base_reward_rate,
+            "dining_reward_rate":        c.dining_reward_rate,
+            "grocery_reward_rate":       c.grocery_reward_rate,
+            "fuel_reward_rate":          c.fuel_reward_rate,
+            "travel_reward_rate":        c.travel_reward_rate,
+            "online_reward_rate":        c.online_reward_rate,
+            "international_reward_rate": c.international_reward_rate,
+            "miles_rate":                c.miles_rate,
+            "reward_cap_monthly":        c.reward_cap_monthly,
+            "reward_cap_annual":         c.reward_cap_annual,
+            "reward_expiry_months":      c.reward_expiry_months,
+            "reward_currency":           c.reward_currency,
+            "reward_exclusions":         c.reward_exclusions,
+            "reward_redemption_rate":    c.reward_redemption_rate,
+            # ── Welcome offer ─────────────────────────────────────────────────
+            "welcome_bonus":              c.welcome_bonus,
+            "welcome_bonus_miles":        c.welcome_bonus_miles,
+            "welcome_bonus_points":       c.welcome_bonus_points,
+            "welcome_spend_requirement":  c.welcome_spend_requirement,
+            "welcome_period_days":        c.welcome_period_days,
+            # ── Lounge ───────────────────────────────────────────────────────
+            "lounge_access":               c.lounge_access,
+            "lounge_program":              c.lounge_program,
+            "lounge_visits_primary":       c.lounge_visits_primary,
+            "lounge_visits_guest":         c.lounge_visits_guest,
+            "lounge_visits_supplementary": c.lounge_visits_supplementary,
+            "lounge_guest_fee_usd":        c.lounge_guest_fee_usd,
+            "lounge_spend_condition":      c.lounge_spend_condition,
+            # ── Travel ───────────────────────────────────────────────────────
+            "travel_insurance":   c.travel_insurance,
+            "airport_transfer":   c.airport_transfer,
+            "airport_fast_track": c.airport_fast_track,
+            "concierge_service":  c.concierge_service,
+            "hotel_status":       c.hotel_status,
+            "global_wifi":        c.global_wifi,
+            # ── Lifestyle ─────────────────────────────────────────────────────
+            "golf_rounds_annual":   c.golf_rounds_annual,
+            "dining_benefits":      c.dining_benefits,
+            "cinema_benefits":      c.cinema_benefits,
+            "fitness_benefit":      c.fitness_benefit,
+            "spa_benefit":          c.spa_benefit,
+            "ride_hailing_benefit": c.ride_hailing_benefit,
+            "entertainer_access":   c.entertainer_access,
+            # ── Digital wallets ───────────────────────────────────────────────
+            "apple_pay":   c.apple_pay,
+            "google_pay":  c.google_pay,
+            "samsung_pay": c.samsung_pay,
+            "garmin_pay":  c.garmin_pay,
+            # ── Forex & cash ──────────────────────────────────────────────────
+            "fx_markup":             c.fx_markup,
+            "cash_advance_fee_pct":  c.cash_advance_fee_pct,
+            "cash_advance_interest": c.cash_advance_interest,
+            # ── Financing ────────────────────────────────────────────────────
+            "interest_rate_monthly":  c.interest_rate_monthly,
+            "balance_transfer_rate":  c.balance_transfer_rate,
+            "balance_transfer_months":c.balance_transfer_months,
+            "installment_tenures":    c.installment_tenures,
+            # ── Insurance ────────────────────────────────────────────────────
+            "purchase_protection_days": c.purchase_protection_days,
+            "extended_warranty_months": c.extended_warranty_months,
+            "price_protection":         c.price_protection,
+            "mobile_phone_protection":  c.mobile_phone_protection,
+            # ── Co-brand ─────────────────────────────────────────────────────
+            "cobrand_partner":         c.cobrand_partner,
+            "cobrand_industry":        c.cobrand_industry,
+            "miles_transfer_partners": c.miles_transfer_partners,
+            "miles_transfer_ratio":    c.miles_transfer_ratio,
+            # ── Spend conditions ──────────────────────────────────────────────
+            "spend_conditions": c.spend_conditions,
+            # ── Summary ───────────────────────────────────────────────────────
             "reward_summary": c.reward_summary,
-            "category": c.card_category,
-
+            "last_updated":   c.last_updated.isoformat() if c.last_updated else None,
         })
 
     return results
