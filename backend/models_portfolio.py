@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Float, DateTime
+from sqlalchemy import Column, Integer, String, Float, DateTime, Text, JSON
 from backend.database import Base
 import datetime
 
@@ -78,3 +78,55 @@ class MashreqCardPerformance(Base):
     cac_cost = Column(Float, default=0.0)                  # customer acquisition cost per card (AED)
 
     timestamp = Column(DateTime, default=datetime.datetime.utcnow)
+
+
+class StrategyRecord(Base):
+    """
+    Persistent log of every strategy generated + its execution and performance.
+    One row per strategy — deduplicated by action_hash so the same strategy is
+    never suggested again.
+    """
+    __tablename__ = "strategy_records"
+
+    id = Column(Integer, primary_key=True)
+
+    # ── Strategy identity ─────────────────────────────────────────────────────
+    card_name      = Column(String, nullable=False, index=True)
+    title          = Column(String)
+    action         = Column(Text)
+    rationale      = Column(Text)
+    priority       = Column(Integer, default=1)
+
+    # SHA-256 of (card_name + action[:120]) — prevents repeat suggestions
+    action_hash    = Column(String(64), unique=True, index=True)
+
+    # ── Recommended parameters ────────────────────────────────────────────────
+    param_reward_rate = Column(Float)
+    param_annual_fee  = Column(Float)
+    param_features    = Column(Float)
+
+    # ── Projected impact ──────────────────────────────────────────────────────
+    projected_profit_aed  = Column(Float, default=0.0)
+    projected_roe_lift_pp = Column(Float, default=0.0)
+    risk_level            = Column(String, default="Medium")
+    confidence_pct        = Column(Integer, default=70)
+    quick_win             = Column(Integer, default=0)   # bool as int
+
+    # ── Execution tracking ────────────────────────────────────────────────────
+    # pending | approved | in_progress | completed | rejected | monitoring
+    status      = Column(String, default="pending")
+    approved_at = Column(DateTime)
+    executed_at = Column(DateTime)
+    completed_at= Column(DateTime)
+    notes       = Column(Text)
+
+    # ── Performance delta (filled at 30/60/90-day check-ins) ─────────────────
+    actual_profit_delta_30d = Column(Float)
+    actual_profit_delta_60d = Column(Float)
+    actual_profit_delta_90d = Column(Float)
+    actual_roe_delta        = Column(Float)
+    performance_notes       = Column(Text)
+
+    # ── Metadata ──────────────────────────────────────────────────────────────
+    generated_at = Column(DateTime, default=datetime.datetime.utcnow)
+    generated_by = Column(String, default="AI")

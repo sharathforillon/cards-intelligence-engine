@@ -18,35 +18,35 @@ SEGMENT_DISPLAY = {
         "description": "Salaried customers with primary banking relationship",
         "icon": "👥",
         "tier_color": "#2563eb",
-        "cards": ["Cashback Card"],
+        "cards": ["Mashreq Cashback Gold Credit Card", "Mashreq Smiles Credit Card"],
     },
     "core_professionals": {
         "label": "Mass Affluent",
         "description": "Mid-career professionals with growing disposable income",
         "icon": "💼",
         "tier_color": "#0891b2",
-        "cards": ["Platinum Plus Card"],
+        "cards": ["Mashreq Cashback Credit Card", "Mashreq Neo Credit Card"],
     },
     "affluent_lifestyle": {
         "label": "Affluent",
         "description": "High-income lifestyle spenders with category focus",
         "icon": "✨",
         "tier_color": "#7c3aed",
-        "cards": ["Solitaire Card"],
+        "cards": ["Mashreq Platinum Elite Credit Card", "Mashreq Solitaire Credit Card"],
     },
     "premium_travelers": {
         "label": "Premium / High-Spend Travelers",
         "description": "Ultra-HNI frequent flyers with international spend",
         "icon": "✈️",
         "tier_color": "#d97706",
-        "cards": ["Solitaire Card", "Platinum Plus Card"],
+        "cards": ["Mashreq Visa Infinite Credit Card", "Mashreq Rank Credit Card"],
     },
     "category_maximizers": {
         "label": "Category Maximizers",
         "description": "Savvy reward optimisers across spend categories",
         "icon": "🎯",
         "tier_color": "#059669",
-        "cards": ["noon Card", "Cashback Card"],
+        "cards": ["Mashreq Neo Credit Card", "Mashreq Cashback Credit Card"],
     },
 }
 
@@ -96,17 +96,32 @@ class SegmentIntelligenceEngine:
 
     # ── Main methods ───────────────────────────────────────────────────────
 
+    def _actual_params_for_segment(self, seg_name: str):
+        """Get average reward_rate and annual_fee from real card records for this segment."""
+        records = (
+            self.db.query(MashreqCardPerformance)
+            .filter(MashreqCardPerformance.segment == seg_name)
+            .all()
+        )
+        if records:
+            avg_reward = sum(r.reward_rate or DEFAULT_REWARD_RATE for r in records) / len(records)
+            avg_fee    = sum(r.annual_fee  or DEFAULT_ANNUAL_FEE  for r in records) / len(records)
+            return avg_reward, avg_fee
+        return DEFAULT_REWARD_RATE, DEFAULT_ANNUAL_FEE
+
     def compute_segment_profitability(self):
         """Return enriched per-segment profitability objects."""
         results = []
         for seg in self.segments:
-            clv_data = self._clv_for_segment(seg)
+            reward_rate, annual_fee = self._actual_params_for_segment(seg["name"])
+            clv_data = self._clv_for_segment(seg, reward_rate=reward_rate, annual_fee=annual_fee)
             cards = self._cards_for_segment(seg["name"])
             annual_reward_cost = (
-                seg["monthly_spend"] * 12 * DEFAULT_REWARD_RATE
+                seg["monthly_spend"] * 12 * reward_rate
                 * (1 - 0.15)  # 15% breakage
             )
-            profit_per_customer = clv_data["monthly_profit"]
+            # Use yearly_profit/12 so annual fee is amortised into monthly figure
+            profit_per_customer = round(clv_data["yearly_profit"] / 12, 2)
             ltv = clv_data["clv_36m"]
 
             display = SEGMENT_DISPLAY.get(seg["name"], {})

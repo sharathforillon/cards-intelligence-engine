@@ -80,11 +80,15 @@ class AcquisitionFunnelEngine:
             logger.warning("compute_funnel_metrics: no MashreqCardPerformance records — returning null")
             return None
 
+        # All figures are MONTHLY cohort — consistency throughout the funnel
+        # NTB + ETB = cards actually issued this month (post-approval)
         total_issued = t["total_ntb"] + t["total_etb"]
-        total_approvals = total_issued                       # 1:1 issue:approve
-        total_applications = int(total_approvals / APPROVAL_RATE)
-        total_activated = int(total_issued * t["avg_activation"])
-        total_active_spenders = t["total_active"]
+        total_approvals = total_issued                                # 1:1 issued:approved (already screened)
+        total_applications = int(total_approvals / APPROVAL_RATE)    # reverse-engineer applicants
+        total_activated = int(total_issued * t["avg_activation"])     # card activations in cohort
+        # Active spenders = activated cards that transact within 90 days (~85%)
+        # Do NOT use t["total_active"] (portfolio lifetime total) — that mixes time scales
+        total_active_spenders = int(total_activated * 0.85)
 
         def conv(a, b):
             return round(b / a * 100, 1) if a > 0 else 0
@@ -129,7 +133,7 @@ class AcquisitionFunnelEngine:
             "overall_conversion_pct": overall_conversion,
             "total_applications": total_applications,
             "total_issued": total_issued,
-            "total_active": total_active_spenders,
+            "total_active": t["total_active"],          # portfolio lifetime total (for KPIs)
             "blended_cac": round(t["blended_cac"], 2),
         }
 

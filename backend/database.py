@@ -1,3 +1,4 @@
+from pathlib import Path
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from backend.models import Base
@@ -5,8 +6,11 @@ from backend.models import Base
 # Import models so SQLAlchemy registers them
 import backend.models
 
-
-DATABASE_URL = "sqlite:///strategy.db"
+# Always point at the project-root strategy.db regardless of working directory.
+# Using a relative URL ("sqlite:///strategy.db") breaks when uvicorn is launched
+# from a sub-directory (e.g. the Claude worktree).
+_DB_PATH = Path(__file__).resolve().parent.parent / "strategy.db"
+DATABASE_URL = f"sqlite:///{_DB_PATH}"
 
 engine = create_engine(
     DATABASE_URL,

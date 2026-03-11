@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useState } from "react";
 import {
   ColumnDef, flexRender, getCoreRowModel,
   getSortedRowModel, SortingState, useReactTable,
@@ -523,8 +523,8 @@ export default function CardIntelligenceTable() {
           </thead>
           <tbody>
             {table.getRowModel().rows.map(row => (
-              <>
-                <tr key={row.id} style={{
+              <Fragment key={row.id}>
+                <tr style={{
                   background: expanded === row.original.id ? "rgba(37,99,235,0.04)" : undefined,
                   borderLeft: `3px solid ${expanded === row.original.id ? "#2563eb" : "transparent"}`,
                 }}>
@@ -533,9 +533,9 @@ export default function CardIntelligenceTable() {
                   ))}
                 </tr>
                 {expanded === row.original.id && (
-                  <CardDetailDrawer key={`d-${row.original.id}`} card={row.original} onClose={() => setExpanded(null)} />
+                  <CardDetailDrawer card={row.original} onClose={() => setExpanded(null)} />
                 )}
-              </>
+              </Fragment>
             ))}
             {table.getRowModel().rows.length === 0 && (
               <tr>

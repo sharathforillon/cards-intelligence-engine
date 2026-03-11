@@ -25,7 +25,7 @@ from backend.ai_advisor import AIAdvisor
 from backend.executive_report_engine import ExecutiveReportEngine
 
 from backend.models import CompetitorCard
-from backend.models_portfolio import MashreqCardPerformance, BankPortfolioSnapshot
+from backend.models_portfolio import MashreqCardPerformance, BankPortfolioSnapshot, StrategyRecord
 
 
 app = FastAPI(title="Cards Strategy Engine")
@@ -473,6 +473,333 @@ def update_portfolio(data: dict = Body(...), db: Session = Depends(get_db)):
     db.commit()
 
     return {"status": "portfolio updated", "id": record.id}
+
+
+@app.get("/portfolio/strategy/history/{card_name}")
+def strategy_history(card_name: str, db: Session = Depends(get_db)):
+    """Return all previously generated (and stored) strategies for a card."""
+    from urllib.parse import unquote
+    card_name = unquote(card_name)
+    records = (
+        db.query(StrategyRecord)
+        .filter(StrategyRecord.card_name == card_name)
+        .order_by(StrategyRecord.generated_at.desc())
+        .all()
+    )
+    return [
+        {
+            "id": r.id,
+            "card_name": r.card_name,
+            "title": r.title,
+            "action": r.action,
+            "rationale": r.rationale,
+            "priority": r.priority,
+            "status": r.status,
+            "risk_level": r.risk_level,
+            "confidence_pct": r.confidence_pct,
+            "quick_win": bool(r.quick_win),
+            "projected_profit_aed": r.projected_profit_aed,
+            "projected_roe_lift_pp": r.projected_roe_lift_pp,
+            "param_reward_rate": r.param_reward_rate,
+            "param_annual_fee": r.param_annual_fee,
+            "param_features": r.param_features,
+            "actual_profit_delta_30d": r.actual_profit_delta_30d,
+            "actual_profit_delta_60d": r.actual_profit_delta_60d,
+            "actual_profit_delta_90d": r.actual_profit_delta_90d,
+            "actual_roe_delta": r.actual_roe_delta,
+            "performance_notes": r.performance_notes,
+            "notes": r.notes,
+            "generated_at": r.generated_at.isoformat() if r.generated_at else None,
+            "approved_at": r.approved_at.isoformat() if r.approved_at else None,
+            "executed_at": r.executed_at.isoformat() if r.executed_at else None,
+            "completed_at": r.completed_at.isoformat() if r.completed_at else None,
+        }
+        for r in records
+    ]
+
+
+@app.patch("/portfolio/strategy/{strategy_id}/status")
+def update_strategy_status(
+    strategy_id: int,
+    data: dict = Body(...),
+    db: Session = Depends(get_db),
+):
+    """Update status/notes/performance for a strategy record."""
+    from fastapi import HTTPException
+    from datetime import datetime, timezone
+    rec = db.query(StrategyRecord).filter(StrategyRecord.id == strategy_id).first()
+    if not rec:
+        raise HTTPException(status_code=404, detail="Strategy not found")
+
+    new_status = data.get("status")
+    if new_status:
+        rec.status = new_status
+        now = datetime.now(timezone.utc)
+        if new_status == "approved"    and not rec.approved_at:  rec.approved_at  = now
+        if new_status == "in_progress" and not rec.executed_at:  rec.executed_at  = now
+        if new_status in ("completed", "rejected") and not rec.completed_at: rec.completed_at = now
+
+    if "notes" in data:                          rec.notes                 = data["notes"]
+    if "actual_profit_delta_30d" in data:        rec.actual_profit_delta_30d = data["actual_profit_delta_30d"]
+    if "actual_profit_delta_60d" in data:        rec.actual_profit_delta_60d = data["actual_profit_delta_60d"]
+    if "actual_profit_delta_90d" in data:        rec.actual_profit_delta_90d = data["actual_profit_delta_90d"]
+    if "actual_roe_delta"        in data:        rec.actual_roe_delta        = data["actual_roe_delta"]
+    if "performance_notes"       in data:        rec.performance_notes       = data["performance_notes"]
+
+    db.commit()
+    return {"status": "updated", "id": strategy_id, "new_status": rec.status}
+
+
+@app.post("/portfolio/strategy/generate/{card_name}")
+def generate_card_strategy(card_name: str, db: Session = Depends(get_db)):
+    """
+    Manually triggered: generate 3 NEW AI strategies for a card.
+    - Does NOT auto-call on every page load (POST requires explicit user action)
+    - Deduplicates by action hash — never resurfaces the same strategy
+    - Stores each new strategy in strategy_records table
+    - Returns only the freshly generated strategies (not history)
+    """
+    import hashlib
+    import anthropic
+    from backend.config import ANTHROPIC_API_KEY
+    from urllib.parse import unquote
+
+    card_name = unquote(card_name)
+
+    from fastapi import HTTPException
+
+    # Load card data
+    record = (
+        db.query(MashreqCardPerformance)
+        .filter(MashreqCardPerformance.card_name == card_name)
+        .order_by(MashreqCardPerformance.timestamp.desc())
+        .first()
+    )
+    if not record:
+        raise HTTPException(status_code=404, detail="Card not found")
+
+    # Load existing action hashes to exclude from new suggestions
+    existing_hashes = {
+        r.action_hash
+        for r in db.query(StrategyRecord.action_hash)
+                   .filter(StrategyRecord.card_name == card_name)
+                   .all()
+    }
+
+    # Compute derived metrics
+    monthly_revenue = (record.interchange_income or 0) + (record.interest_income or 0)
+    monthly_cost = (record.reward_cost or 0) + (record.credit_loss or 0)
+    net_monthly = monthly_revenue - monthly_cost
+    annual_profit = net_monthly * 12
+    spend_per_card = (record.monthly_spend or 0) / max(record.active_cards or 1, 1)
+
+    # Load top 3 competitor cashback rates for context
+    from backend.models import CompetitorCard
+    import json as _json
+    competitors = db.query(CompetitorCard).filter(CompetitorCard.cashback_rate.isnot(None)).limit(10).all()
+    comp_context = []
+    for c in competitors[:5]:
+        try:
+            cb = _json.loads(c.cashback_rate) if isinstance(c.cashback_rate, str) else c.cashback_rate
+            base = cb.get("base", 0) if isinstance(cb, dict) else 0
+            comp_context.append(f"{c.bank_name} {c.card_name}: {base*100:.1f}% base cashback, AED {c.annual_fee or 0:.0f} annual fee")
+        except Exception:
+            pass
+
+    card_context = f"""
+CARD: {record.card_name}
+Segment: {record.segment}
+Active Cards: {record.active_cards:,}
+Annual Fee: AED {record.annual_fee:.0f}
+Reward Rate: {record.reward_rate*100:.1f}%
+FX Markup: {record.fx_markup:.2f}%
+Monthly Spend: AED {record.monthly_spend/1e6:.1f}M  (AED {spend_per_card:,.0f}/card)
+Revolve Rate: {record.revolve_rate*100:.0f}%
+NPL Rate: {record.npl_rate*100:.1f}%
+Attrition Rate: {record.attrition_rate*100:.0f}%/yr
+Monthly Revenue: AED {monthly_revenue:,.0f}
+Monthly Costs: AED {monthly_cost:,.0f}
+Net Monthly Profit: AED {net_monthly:,.0f}
+Est. Annual Profit: AED {annual_profit/1e6:.1f}M
+
+TOP COMPETITORS (for reference):
+{chr(10).join(comp_context) if comp_context else "No competitor data available"}
+"""
+
+    already_tried = "\n".join(
+        f"- {r.action[:100]}"
+        for r in db.query(StrategyRecord)
+                   .filter(StrategyRecord.card_name == card_name)
+                   .order_by(StrategyRecord.generated_at.desc())
+                   .limit(10)
+                   .all()
+    ) or "None yet"
+
+    prompt = f"""You are the Head of Cards Strategy at Mashreq Bank UAE. Analyze this card's performance and provide exactly 3 NEW, DIFFERENT proactive strategies in strict JSON format.
+
+{card_context}
+
+STRATEGIES ALREADY TRIED (do NOT repeat these):
+{already_tried}
+
+Return ONLY valid JSON with this exact structure (no prose, no markdown):
+{{
+  "card_summary": "One sentence on the card's current strategic position",
+  "strategies": [
+    {{
+      "priority": 1,
+      "title": "Short action title (5-8 words)",
+      "action": "Specific actionable imperative (what to change and to what value)",
+      "rationale": "2-sentence explanation of why this improves profitability",
+      "parameter_changes": {{
+        "reward_rate": null,
+        "annual_fee": null,
+        "features": null
+      }},
+      "profit_impact_aed_annual": 0,
+      "roe_improvement_pp": 0.0,
+      "risk_level": "Low|Medium|High",
+      "confidence_pct": 0,
+      "quick_win": true
+    }}
+  ]
+}}
+
+Rules:
+- Do NOT repeat strategies already tried above
+- parameter_changes: null if unchanged, else new value (reward_rate decimal, annual_fee AED, features 0.3-1.0)
+- profit_impact_aed_annual: realistic AED (positive = gain)
+- confidence_pct: 60-95
+- quick_win: true if implementable in < 90 days
+- Prioritize by profit_impact_aed_annual descending
+"""
+
+    def _make_hash(cn: str, act: str) -> str:
+        return hashlib.sha256(f"{cn}|{act[:120]}".encode()).hexdigest()
+
+    def _save_strategies(strategies: list, card_summary: str) -> list:
+        """Persist new strategies to DB, skip duplicates, return saved ones."""
+        saved = []
+        for s in strategies:
+            h = _make_hash(card_name, s.get("action", ""))
+            if h in existing_hashes:
+                continue   # already in history — skip
+            pc = s.get("parameter_changes", {})
+            row = StrategyRecord(
+                card_name          = record.card_name,
+                title              = s.get("title"),
+                action             = s.get("action"),
+                rationale          = s.get("rationale"),
+                priority           = s.get("priority", 1),
+                action_hash        = h,
+                param_reward_rate  = pc.get("reward_rate"),
+                param_annual_fee   = pc.get("annual_fee"),
+                param_features     = pc.get("features"),
+                projected_profit_aed  = s.get("profit_impact_aed_annual", 0),
+                projected_roe_lift_pp = s.get("roe_improvement_pp", 0),
+                risk_level         = s.get("risk_level", "Medium"),
+                confidence_pct     = s.get("confidence_pct", 70),
+                quick_win          = 1 if s.get("quick_win") else 0,
+                status             = "pending",
+                generated_by       = "AI",
+            )
+            try:
+                db.add(row)
+                db.flush()   # get id before commit
+                s["id"] = row.id
+                saved.append(s)
+            except Exception:
+                db.rollback()
+        try:
+            db.commit()
+        except Exception:
+            db.rollback()
+        return saved
+
+    try:
+        client = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
+        response = client.messages.create(
+            model="claude-sonnet-4-5-20250929",
+            max_tokens=1200,
+            temperature=0.3,
+            messages=[{"role": "user", "content": prompt}],
+        )
+        import json as _json2
+        raw = response.content[0].text.strip()
+        if raw.startswith("```"):
+            raw = raw.split("```")[1]
+            if raw.startswith("json"):
+                raw = raw[4:]
+        result = _json2.loads(raw)
+        saved = _save_strategies(result.get("strategies", []), result.get("card_summary", ""))
+        return {
+            "card_name":        record.card_name,
+            "card_summary":     result.get("card_summary", ""),
+            "annual_profit_aed": round(annual_profit),
+            "monthly_spend_aed": record.monthly_spend,
+            "active_cards":     record.active_cards,
+            "strategies":       saved,
+            "generated_fresh":  True,
+        }
+    except Exception as e:
+        # Fallback: rule-based strategies (also deduplicated + saved)
+        fallback = []
+        candidates = [
+            {
+                "priority": 1,
+                "title": "Reduce churn with anniversary cashback",
+                "action": f"Introduce AED {max(100, int(record.annual_fee * 0.3)):,} anniversary cashback credit to reduce {record.attrition_rate*100:.0f}% attrition",
+                "rationale": f"High attrition costs ~AED {int(record.active_cards * record.attrition_rate * spend_per_card * 0.009 * 12):,}/yr in lost interchange. Anniversary reward has 4:1 ROI on retained customers.",
+                "parameter_changes": {"reward_rate": None, "annual_fee": None, "features": round(min(1.0, (record.reward_rate or 0.02) * 5 + 0.1), 1)},
+                "profit_impact_aed_annual": int(record.active_cards * record.attrition_rate * spend_per_card * 0.009 * 12 * 0.3),
+                "roe_improvement_pp": 1.8, "risk_level": "Low", "confidence_pct": 78, "quick_win": True,
+            },
+            {
+                "priority": 2,
+                "title": "Boost reward rate to grow spend volume",
+                "action": f"Raise base reward rate from {record.reward_rate*100:.1f}% to {min(record.reward_rate*100 + 0.5, 3.0):.1f}% to grow active spend",
+                "rationale": "Below-market reward rate caps spend activation. A 0.5pp increase drives ~8% spend uplift, with net revenue gain at 4:1 revenue-to-reward ratio.",
+                "parameter_changes": {"reward_rate": round(record.reward_rate + 0.005, 3), "annual_fee": None, "features": None},
+                "profit_impact_aed_annual": int(record.monthly_spend * 0.08 * 0.009 * 12),
+                "roe_improvement_pp": 1.2, "risk_level": "Low", "confidence_pct": 72, "quick_win": True,
+            },
+            {
+                "priority": 3,
+                "title": "Launch instalment plan to convert revolvers",
+                "action": "Offer 0% instalment plan for purchases > AED 2,000 with 1.5% processing fee",
+                "rationale": f"Revolve rate of {record.revolve_rate*100:.0f}% signals instalment demand. Processing fee generates incremental income while reducing credit risk concentration.",
+                "parameter_changes": {"reward_rate": None, "annual_fee": None, "features": None},
+                "profit_impact_aed_annual": int((record.outstanding_balance or 0) * 0.015 * 12 * 0.2),
+                "roe_improvement_pp": 0.8, "risk_level": "Low", "confidence_pct": 68, "quick_win": True,
+            },
+            {
+                "priority": 1,
+                "title": "Reduce FX markup to capture international spend",
+                "action": f"Lower FX markup from {record.fx_markup:.2f}% to 1.5% and add complimentary lounge visit",
+                "rationale": "International spend carries 0.15pp higher interchange. Lower FX markup drives 15% more FX transactions at net positive margin.",
+                "parameter_changes": {"reward_rate": None, "annual_fee": None, "features": 0.8},
+                "profit_impact_aed_annual": int(record.monthly_spend * 0.15 * 0.009 * 12),
+                "roe_improvement_pp": 1.0, "risk_level": "Medium", "confidence_pct": 65, "quick_win": False,
+            },
+        ]
+        # Filter out already-tried, take up to 3 new ones
+        for c in candidates:
+            h = _make_hash(card_name, c["action"])
+            if h not in existing_hashes:
+                fallback.append(c)
+            if len(fallback) == 3:
+                break
+
+        saved = _save_strategies(fallback, "")
+        return {
+            "card_name":        record.card_name,
+            "card_summary":     f"{record.card_name}: AED {annual_profit/1e6:.1f}M annual profit, {record.attrition_rate*100:.0f}% attrition rate.",
+            "annual_profit_aed": round(annual_profit),
+            "monthly_spend_aed": record.monthly_spend,
+            "active_cards":     record.active_cards,
+            "strategies":       saved,
+            "generated_fresh":  True,
+        }
 
 
 @app.delete("/portfolio/cards/{card_id}")
