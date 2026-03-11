@@ -1,268 +1,202 @@
 """
-Seed script — Mashreq UAE Credit Card Portfolio (8 cards, realistic 2026 data).
+Seed script — Mashreq UAE Credit Card Portfolio.
 
-Run once (or re-run; it upserts by card_name, keeping only latest row):
+Pulls card names, annual fees, and cashback rates directly from the scraped
+CompetitorCard table (bank_name = 'Mashreq') and supplements with realistic
+portfolio-performance figures for the 4 live products:
+
+  1. Cashback Credit Card       — free, mass market, online/grocery 5%
+  2. noon Credit Card           — free, noon co-brand, 10% noon cashback
+  3. Platinum Plus Credit Card  — AED 400/yr, mass-affluent, rewards
+  4. Solitaire Credit Card      — AED 1,500/yr, HNW premium
+
+Run:
   PYTHONPATH=/path/to/repo python -m backend.seed_mashreq_portfolio
 """
 
 from datetime import datetime, timezone
 from backend.database import SessionLocal, init_db
+from backend.models import CompetitorCard
 from backend.models_portfolio import MashreqCardPerformance
 
+# ──────────────────────────────────────────────────────────────────────────────
+# Canonical card names as they appear (or should appear) in the scraped DB.
+# We prefer the richer scraped rows (ids 36-39) that have tier/segment data.
+# ──────────────────────────────────────────────────────────────────────────────
+CANONICAL_NAMES = [
+    "Cashback Credit Card",
+    "noon Credit Card",
+    "Platinum Plus Credit Card",
+    "Solitaire Credit Card",
+]
 
-MASHREQ_CARDS = [
-    # ── 1. Cashback Credit Card — flagship mass-affluent product ──────────────
-    {
-        "card_name":         "Mashreq Cashback Credit Card",
+# Performance figures that cannot be scraped from public pages.
+# Values are realistic estimates for a mid-tier UAE bank (2025-2026).
+PERF_OVERLAY = {
+    "Cashback Credit Card": {
         "segment":           "core_professionals",
-        # volume
-        "total_enr":         98_000,
-        "active_cards":      78_000,
+        "total_enr":         85_000,
+        "active_cards":      68_000,
         "activation_rate":   0.80,
-        "attrition_rate":    0.14,
-        # product design
-        "annual_fee":        750.0,
-        "reward_rate":       0.020,   # blended (5% dining, 1% others)
-        "fx_markup":         3.20,
-        # spend & credit
-        "monthly_spend":     175_000_000.0,
-        "avg_credit_limit":  28_000.0,
-        "outstanding_balance": 42_500_000.0,
-        "utilization_rate":  0.195,
-        "revolve_rate":      0.35,
-        # revenue
-        "interchange_income": 1_575_000.0,   # ~0.9% of spend
-        "interest_income":    3_400_000.0,   # 2.89%/month on revolving balance (partial)
-        # costs & risk
-        "reward_cost":       3_500_000.0,    # 2% × AED 175M
-        "credit_loss":       680_000.0,
+        "attrition_rate":    0.16,
+        "fx_markup":         2.30,
+        "monthly_spend":     148_000_000.0,   # AED 68K cards × ~AED 2,200/card/mo
+        "avg_credit_limit":  15_000.0,
+        "outstanding_balance": 35_000_000.0,
+        "utilization_rate":  0.21,
+        "revolve_rate":      0.32,
+        "interchange_income": 1_332_000.0,    # 0.9% × spend
+        "interest_income":    2_800_000.0,    # ~26% APR on revolving balance
+        "reward_cost":       2_220_000.0,     # blended ~1.5% × spend
+        "credit_loss":       560_000.0,
         "npl_rate":          0.016,
         "delinquency_30dpd": 0.028,
-        # acquisition
-        "acquisition_ntb":   3_200,
-        "acquisition_etb":   1_100,
-        "cac_cost":          420.0,
+        "acquisition_ntb":   3_500,
+        "acquisition_etb":   1_200,
+        "cac_cost":          380.0,
     },
-
-    # ── 2. Smiles Credit Card — e& co-brand, mass-market volume driver ────────
-    {
-        "card_name":         "Mashreq Smiles Credit Card",
+    "noon Credit Card": {
         "segment":           "salary_bank_customers",
-        "total_enr":         122_000,
-        "active_cards":      95_000,
-        "activation_rate":   0.78,
-        "attrition_rate":    0.18,
-        "annual_fee":        1_050.0,
-        "reward_rate":       0.015,
-        "fx_markup":         2.99,
-        "monthly_spend":     165_000_000.0,
-        "avg_credit_limit":  18_000.0,
-        "outstanding_balance": 52_000_000.0,
-        "utilization_rate":  0.237,
-        "revolve_rate":      0.42,
-        "interchange_income": 1_485_000.0,
-        "interest_income":    4_160_000.0,
-        "reward_cost":       2_475_000.0,
-        "credit_loss":       1_040_000.0,
+        "total_enr":         55_000,
+        "active_cards":      42_000,
+        "activation_rate":   0.76,
+        "attrition_rate":    0.20,
+        "fx_markup":         2.30,
+        "monthly_spend":     78_000_000.0,    # lower spend, online-heavy
+        "avg_credit_limit":  12_000.0,
+        "outstanding_balance": 22_000_000.0,
+        "utilization_rate":  0.26,
+        "revolve_rate":      0.38,
+        "interchange_income": 702_000.0,      # 0.9% × spend
+        "interest_income":    1_760_000.0,
+        "reward_cost":       1_950_000.0,     # ~2.5% blended (10% noon is heavy)
+        "credit_loss":       440_000.0,
         "npl_rate":          0.020,
-        "delinquency_30dpd": 0.038,
-        "acquisition_ntb":   4_800,
-        "acquisition_etb":   900,
-        "cac_cost":          310.0,
-    },
-
-    # ── 3. Platinum Elite — affluent segment, high-spend card ─────────────────
-    {
-        "card_name":         "Mashreq Platinum Elite Credit Card",
-        "segment":           "affluent_lifestyle",
-        "total_enr":         34_000,
-        "active_cards":      28_000,
-        "activation_rate":   0.82,
-        "attrition_rate":    0.10,
-        "annual_fee":        2_000.0,
+        "delinquency_30dpd": 0.035,
+        "acquisition_ntb":   2_800,
+        "acquisition_etb":   700,
+        "cac_cost":          290.0,
+        # Override blended rate: ~25% spend on noon (10%) + 75% base (1%) = 3.25%
+        # But noon pays subsidy to cover most noon cashback, net cost ~2.5%
         "reward_rate":       0.025,
-        "fx_markup":         1.75,
-        "monthly_spend":     85_000_000.0,
-        "avg_credit_limit":  65_000.0,
-        "outstanding_balance": 14_500_000.0,
-        "utilization_rate":  0.134,
-        "revolve_rate":      0.22,
-        "interchange_income": 850_000.0,
-        "interest_income":    1_160_000.0,
-        "reward_cost":       2_125_000.0,
-        "credit_loss":       145_000.0,
-        "npl_rate":          0.008,
-        "delinquency_30dpd": 0.012,
-        "acquisition_ntb":   820,
-        "acquisition_etb":   540,
-        "cac_cost":          680.0,
     },
-
-    # ── 4. Solitaire — premium ladies card, Visa Infinite ────────────────────
-    {
-        "card_name":         "Mashreq Solitaire Credit Card",
+    "Platinum Plus Credit Card": {
         "segment":           "affluent_lifestyle",
-        "total_enr":         18_500,
-        "active_cards":      15_000,
-        "activation_rate":   0.81,
-        "attrition_rate":    0.09,
-        "annual_fee":        2_500.0,
-        "reward_rate":       0.020,
-        "fx_markup":         1.75,
-        "monthly_spend":     52_000_000.0,
-        "avg_credit_limit":  72_000.0,
-        "outstanding_balance": 7_800_000.0,
-        "utilization_rate":  0.118,
-        "revolve_rate":      0.18,
-        "interchange_income": 572_000.0,
-        "interest_income":    624_000.0,
-        "reward_cost":       1_040_000.0,
-        "credit_loss":       62_400.0,
+        "total_enr":         48_000,
+        "active_cards":      38_000,
+        "activation_rate":   0.79,
+        "attrition_rate":    0.12,
+        "fx_markup":         2.30,
+        "monthly_spend":     114_000_000.0,   # AED 38K × ~AED 3,000/card/mo
+        "avg_credit_limit":  40_000.0,
+        "outstanding_balance": 21_000_000.0,
+        "utilization_rate":  0.16,
+        "revolve_rate":      0.25,
+        "interchange_income": 1_026_000.0,
+        "interest_income":    1_680_000.0,
+        "reward_cost":       2_280_000.0,     # ~2% blended rewards
+        "credit_loss":       210_000.0,
+        "npl_rate":          0.010,
+        "delinquency_30dpd": 0.016,
+        "acquisition_ntb":   1_200,
+        "acquisition_etb":   680,
+        "cac_cost":          520.0,
+    },
+    "Solitaire Credit Card": {
+        "segment":           "premium_travelers",
+        "total_enr":         14_000,
+        "active_cards":      11_500,
+        "activation_rate":   0.82,
+        "attrition_rate":    0.08,
+        "fx_markup":         2.30,
+        "monthly_spend":     69_000_000.0,    # AED 11.5K × ~AED 6,000/card/mo
+        "avg_credit_limit":  80_000.0,
+        "outstanding_balance": 9_200_000.0,
+        "utilization_rate":  0.11,
+        "revolve_rate":      0.14,
+        "interchange_income": 690_000.0,
+        "interest_income":    737_000.0,
+        "reward_cost":       1_380_000.0,     # 2% blended premium rewards
+        "credit_loss":       55_000.0,
         "npl_rate":          0.006,
         "delinquency_30dpd": 0.009,
-        "acquisition_ntb":   380,
-        "acquisition_etb":   210,
-        "cac_cost":          850.0,
+        "acquisition_ntb":   320,
+        "acquisition_etb":   180,
+        "cac_cost":          920.0,
     },
+}
 
-    # ── 5. Visa Infinite — HNW flagship, ultra-premium ───────────────────────
-    {
-        "card_name":         "Mashreq Visa Infinite Credit Card",
-        "segment":           "premium_travelers",
-        "total_enr":         10_200,
-        "active_cards":      8_500,
-        "activation_rate":   0.83,
-        "attrition_rate":    0.07,
-        "annual_fee":        3_500.0,
-        "reward_rate":       0.015,
-        "fx_markup":         1.50,
-        "monthly_spend":     68_000_000.0,
-        "avg_credit_limit":  150_000.0,
-        "outstanding_balance": 5_200_000.0,
-        "utilization_rate":  0.082,
-        "revolve_rate":      0.10,
-        "interchange_income": 748_000.0,
-        "interest_income":    416_000.0,
-        "reward_cost":       1_020_000.0,
-        "credit_loss":       26_000.0,
-        "npl_rate":          0.004,
-        "delinquency_30dpd": 0.006,
-        "acquisition_ntb":   210,
-        "acquisition_etb":   140,
-        "cac_cost":          1_200.0,
-    },
 
-    # ── 6. Neo — digital-first, young professionals ───────────────────────────
-    {
-        "card_name":         "Mashreq Neo Credit Card",
-        "segment":           "core_professionals",
-        "total_enr":         54_000,
-        "active_cards":      42_000,
-        "activation_rate":   0.78,
-        "attrition_rate":    0.19,
-        "annual_fee":        0.0,
-        "reward_rate":       0.020,
-        "fx_markup":         1.99,
-        "monthly_spend":     73_000_000.0,
-        "avg_credit_limit":  22_000.0,
-        "outstanding_balance": 16_200_000.0,
-        "utilization_rate":  0.175,
-        "revolve_rate":      0.28,
-        "interchange_income": 730_000.0,
-        "interest_income":    1_296_000.0,
-        "reward_cost":       1_460_000.0,
-        "credit_loss":       324_000.0,
-        "npl_rate":          0.018,
-        "delinquency_30dpd": 0.030,
-        "acquisition_ntb":   2_400,
-        "acquisition_etb":   650,
-        "cac_cost":          280.0,
-    },
-
-    # ── 7. Rank — miles-based, frequent traveler segment ─────────────────────
-    {
-        "card_name":         "Mashreq Rank Credit Card",
-        "segment":           "premium_travelers",
-        "total_enr":         22_000,
-        "active_cards":      18_000,
-        "activation_rate":   0.82,
-        "attrition_rate":    0.11,
-        "annual_fee":        1_200.0,
-        "reward_rate":       0.015,
-        "fx_markup":         2.00,
-        "monthly_spend":     64_000_000.0,
-        "avg_credit_limit":  55_000.0,
-        "outstanding_balance": 7_600_000.0,
-        "utilization_rate":  0.105,
-        "revolve_rate":      0.15,
-        "interchange_income": 640_000.0,
-        "interest_income":    608_000.0,
-        "reward_cost":       960_000.0,
-        "credit_loss":       76_000.0,
-        "npl_rate":          0.009,
-        "delinquency_30dpd": 0.014,
-        "acquisition_ntb":   620,
-        "acquisition_etb":   320,
-        "cac_cost":          720.0,
-    },
-
-    # ── 8. Cashback Gold — entry-level, mass-market acquisition engine ────────
-    {
-        "card_name":         "Mashreq Cashback Gold Credit Card",
-        "segment":           "salary_bank_customers",
-        "total_enr":         80_000,
-        "active_cards":      62_000,
-        "activation_rate":   0.775,
-        "attrition_rate":    0.22,
-        "annual_fee":        300.0,
-        "reward_rate":       0.010,
-        "fx_markup":         3.50,
-        "monthly_spend":     98_000_000.0,
-        "avg_credit_limit":  12_000.0,
-        "outstanding_balance": 32_000_000.0,
-        "utilization_rate":  0.270,
-        "revolve_rate":      0.48,
-        "interchange_income": 980_000.0,
-        "interest_income":    2_560_000.0,
-        "reward_cost":       980_000.0,
-        "credit_loss":       960_000.0,
-        "npl_rate":          0.030,
-        "delinquency_30dpd": 0.052,
-        "acquisition_ntb":   5_500,
-        "acquisition_etb":   1_800,
-        "cac_cost":          240.0,
-    },
-]
+def _blended_rate(cashback_dict: dict) -> float:
+    """Convert a cashback_rate dict to a blended reward_rate float."""
+    if not cashback_dict:
+        return 0.015
+    base = cashback_dict.get("base", 0.01)
+    boosted = [v for k, v in cashback_dict.items() if k != "base"]
+    if boosted:
+        # Weight: 60% base spend, 40% split across boosted categories
+        n = len(boosted)
+        return round(base * 0.60 + sum(boosted) / n * 0.40, 4)
+    return base
 
 
 def seed():
     init_db()
     db = SessionLocal()
     try:
-        inserted = 0
-        updated  = 0
-        ts       = datetime.now(timezone.utc)
-
-        for card_data in MASHREQ_CARDS:
-            # Upsert: keep only the latest row per card_name
-            existing = (
-                db.query(MashreqCardPerformance)
-                .filter(MashreqCardPerformance.card_name == card_data["card_name"])
+        # ── 1. Load scraped Mashreq cards ──────────────────────────────────
+        scraped: dict[str, CompetitorCard] = {}
+        for name in CANONICAL_NAMES:
+            # Prefer the richer/later scraped rows (higher id)
+            row = (
+                db.query(CompetitorCard)
+                .filter(
+                    CompetitorCard.bank_name == "Mashreq",
+                    CompetitorCard.card_name == name,
+                )
+                .order_by(CompetitorCard.id.desc())
                 .first()
             )
-            if existing:
-                for k, v in card_data.items():
-                    setattr(existing, k, v)
-                existing.timestamp = ts
-                updated += 1
+            if row:
+                scraped[name] = row
             else:
-                db.add(MashreqCardPerformance(**card_data, timestamp=ts))
-                inserted += 1
+                print(f"  ⚠ '{name}' not found in scraped DB — skipping")
+
+        if not scraped:
+            print("✗ No Mashreq cards found in CompetitorCard table. Run the scraper first.")
+            return
+
+        # ── 2. Wipe old portfolio rows (removes fake cards from previous seed) ──
+        db.query(MashreqCardPerformance).delete()
+        db.flush()
+
+        # ── 3. Insert fresh rows ────────────────────────────────────────────
+        ts = datetime.now(timezone.utc)
+        inserted = 0
+        for name, scraped_card in scraped.items():
+            perf = PERF_OVERLAY.get(name, {}).copy()
+            annual_fee = scraped_card.annual_fee if scraped_card.annual_fee is not None else 0.0
+            # Use override from PERF_OVERLAY if present, else compute from scraped cashback dict
+            reward_rate = perf.pop("reward_rate", None) or _blended_rate(scraped_card.cashback_rate or {})
+
+            row = MashreqCardPerformance(
+                card_name=name,
+                annual_fee=annual_fee,
+                reward_rate=reward_rate,
+                timestamp=ts,
+                **perf,
+            )
+            db.add(row)
+            inserted += 1
 
         db.commit()
-        print(f"✓ Mashreq portfolio seed complete: {inserted} inserted, {updated} updated.")
-        print(f"  Total portfolio: {sum(c['active_cards'] for c in MASHREQ_CARDS):,} active cards")
-        print(f"  Monthly spend:   AED {sum(c['monthly_spend'] for c in MASHREQ_CARDS)/1e6:.0f}M")
+
+        total_active = sum(PERF_OVERLAY[n]["active_cards"] for n in scraped)
+        total_spend  = sum(PERF_OVERLAY[n]["monthly_spend"] for n in scraped) / 1e6
+        print(f"✓ Mashreq portfolio seed complete: {inserted} cards inserted (all fake cards removed)")
+        print(f"  Cards:         {', '.join(scraped.keys())}")
+        print(f"  Active cards:  {total_active:,}")
+        print(f"  Monthly spend: AED {total_spend:.0f}M")
 
     except Exception as e:
         db.rollback()

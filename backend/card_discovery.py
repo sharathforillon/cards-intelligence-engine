@@ -46,6 +46,10 @@ NON_CARD_PATH_FRAGMENTS = [
     "/services/",
     "/sitecore/",
     "/data/",
+    "/promotions/",           # campaign/promo pages, not individual card products
+    "/priority-banking/",     # e.g. ENBD "Signature by Priority Banking" (package)
+    "/commercial-cards/",     # business/corporate cards, not personal
+    "/private-banking/",
     "#accordion",
     "#tab_",
     "#component_",
@@ -72,6 +76,7 @@ EXCLUDED_TEXT = [
     "how to", "what is", "what are",
     # Generic card management actions (not product pages)
     "block your card",
+    "blocking your card",
     "activate your",
     "activating your",
     "manage your",
@@ -167,8 +172,8 @@ def _is_card_detail_url(url: str, base_url: str) -> bool:
     """
     URL must:
     1. Navigate away from the base listing page (path differs)
-    2. End in a multi-word slug (not a generic service slug)
-    3. Have 'card' or 'credit' somewhere in the path
+    2. End in a slug that is not a known service/nav page
+    3. Have 'card' or 'credit' somewhere in the path OR the link text signals a card
     4. Not contain a non-card sub-path
     """
     base_path = _path_lower(base_url).rstrip("/")
@@ -179,11 +184,7 @@ def _is_card_detail_url(url: str, base_url: str) -> bool:
 
     slug = _last_slug(url)
 
-    if slug in NON_CARD_SLUGS or len(slug) < 5:
-        return False
-
-    # Slug must look like a product name (at least 2 dash-separated words)
-    if len(slug.split("-")) < 2:
+    if slug in NON_CARD_SLUGS or len(slug) < 4:
         return False
 
     url_lower = url.lower()
@@ -199,8 +200,13 @@ def _is_card_detail_url(url: str, base_url: str) -> bool:
         if not any(h in slug for h in hints):
             return False
 
-    # Path must mention "card" or "credit"
-    if "card" not in url_path and "credit" not in url_path:
+    # Path OR slug must mention "card" or "credit" or a known card product word
+    card_hints = ["card", "credit", "visa", "mastercard", "amex", "titanium",
+                  "platinum", "infinite", "signature", "gold", "elite",
+                  "skywards", "etihad", "miles", "cashback", "rewards",
+                  "travel", "world", "go4it", "lulu", "noon", "beyond",
+                  "solitaire", "vox", "gemini"]
+    if not any(h in url_path for h in card_hints):
         return False
 
     return True

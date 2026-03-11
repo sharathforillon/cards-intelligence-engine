@@ -18,35 +18,35 @@ SEGMENT_DISPLAY = {
         "description": "Salaried customers with primary banking relationship",
         "icon": "👥",
         "tier_color": "#2563eb",
-        "cards": ["Mashreq Cashback Gold Credit Card", "Mashreq Smiles Credit Card"],
+        "cards": ["noon Credit Card"],
     },
     "core_professionals": {
         "label": "Mass Affluent",
         "description": "Mid-career professionals with growing disposable income",
         "icon": "💼",
         "tier_color": "#0891b2",
-        "cards": ["Mashreq Cashback Credit Card", "Mashreq Neo Credit Card"],
+        "cards": ["Cashback Credit Card"],
     },
     "affluent_lifestyle": {
         "label": "Affluent",
         "description": "High-income lifestyle spenders with category focus",
         "icon": "✨",
         "tier_color": "#7c3aed",
-        "cards": ["Mashreq Platinum Elite Credit Card", "Mashreq Solitaire Credit Card"],
+        "cards": ["Platinum Plus Credit Card"],
     },
     "premium_travelers": {
         "label": "Premium / High-Spend Travelers",
         "description": "Ultra-HNI frequent flyers with international spend",
         "icon": "✈️",
         "tier_color": "#d97706",
-        "cards": ["Mashreq Visa Infinite Credit Card", "Mashreq Rank Credit Card"],
+        "cards": ["Solitaire Credit Card"],
     },
     "category_maximizers": {
         "label": "Category Maximizers",
         "description": "Savvy reward optimisers across spend categories",
         "icon": "🎯",
         "tier_color": "#059669",
-        "cards": ["Mashreq Neo Credit Card", "Mashreq Cashback Credit Card"],
+        "cards": ["noon Credit Card", "Cashback Credit Card"],
     },
 }
 
@@ -65,14 +65,32 @@ class SegmentIntelligenceEngine:
 
     # ── Helpers ────────────────────────────────────────────────────────────
 
+    def _actual_monthly_spend_for_segment(self, seg_name: str, fallback: float) -> float:
+        """
+        Return per-card monthly spend from DB (monthly_spend / active_cards).
+        Falls back to the CustomerSegments estimate if DB has no data.
+        """
+        records = self.db.query(MashreqCardPerformance).filter(
+            MashreqCardPerformance.segment == seg_name
+        ).all()
+        if records:
+            total_spend  = sum(r.monthly_spend  or 0 for r in records)
+            total_active = sum(r.active_cards   or 1 for r in records)
+            return round(total_spend / max(total_active, 1), 2)
+        return fallback
+
     def _clv_for_segment(self, seg, reward_rate=None, annual_fee=None):
         """Run simulate_card_clv with segment-specific parameters."""
         rr = reward_rate if reward_rate is not None else DEFAULT_REWARD_RATE
         af = annual_fee if annual_fee is not None else DEFAULT_ANNUAL_FEE
+        # Use per-card monthly spend from DB records (real data) when available
+        monthly_spend = self._actual_monthly_spend_for_segment(
+            seg["name"], fallback=seg["monthly_spend"]
+        )
         return self.simulator.simulate_card_clv(
             reward_rate=rr,
             annual_fee=af,
-            monthly_spend=seg["monthly_spend"],
+            monthly_spend=monthly_spend,
             revolver_rate=seg["revolve_rate"],
             apr=getattr(self.config, "interest_rate", 0.26),
         )
@@ -89,10 +107,12 @@ class SegmentIntelligenceEngine:
         )
         if records:
             return sum(r.active_cards or 0 for r in records)
-        # Fallback: use portfolio_share × baseline
+        # Fallback: use portfolio_share × actual total portfolio active cards from DB
+        all_records = self.db.query(MashreqCardPerformance).all()
+        total_active = sum(r.active_cards or 0 for r in all_records) or 159_500
         seg = next((s for s in self.segments if s["name"] == seg_name), None)
         share = seg["portfolio_share"] if seg else 0.2
-        return int(375_000 * share)
+        return int(total_active * share)
 
     # ── Main methods ───────────────────────────────────────────────────────
 
@@ -114,10 +134,14 @@ class SegmentIntelligenceEngine:
         results = []
         for seg in self.segments:
             reward_rate, annual_fee = self._actual_params_for_segment(seg["name"])
+            # Use per-card monthly spend from DB when available, fall back to segment benchmark
+            actual_monthly_spend = self._actual_monthly_spend_for_segment(
+                seg["name"], fallback=seg["monthly_spend"]
+            )
             clv_data = self._clv_for_segment(seg, reward_rate=reward_rate, annual_fee=annual_fee)
             cards = self._cards_for_segment(seg["name"])
             annual_reward_cost = (
-                seg["monthly_spend"] * 12 * reward_rate
+                actual_monthly_spend * 12 * reward_rate
                 * (1 - 0.15)  # 15% breakage
             )
             # Use yearly_profit/12 so annual fee is amortised into monthly figure
@@ -135,7 +159,7 @@ class SegmentIntelligenceEngine:
                 "cards": display.get("cards", []),
                 "portfolio_share": seg["portfolio_share"],
                 "cards_issued": cards,
-                "monthly_spend_per_card": seg["monthly_spend"],
+                "monthly_spend_per_card": round(actual_monthly_spend),
                 "revolve_rate": seg["revolve_rate"],
                 "annual_reward_cost": round(annual_reward_cost, 2),
                 "churn_rate": seg["annual_churn"],

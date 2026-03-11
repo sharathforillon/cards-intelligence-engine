@@ -200,8 +200,10 @@ async def scrape_card(bank_name: str, card: dict, browser,
         page = await context.new_page()
 
         try:
-            await page.goto(url, timeout=60_000, wait_until="domcontentloaded")
-            await asyncio.sleep(random.randint(3, 8))
+            await page.goto(url, timeout=90_000, wait_until="networkidle")
+            await asyncio.sleep(random.randint(2, 5))
+            # Scroll to ensure all benefits/fee details render (accordion sections)
+            await _full_scroll_and_wait(page)
 
             page_text = await page.evaluate("document.body.innerText")
             page_hash = hash_content(page_text)
@@ -221,6 +223,42 @@ async def scrape_card(bank_name: str, card: dict, browser,
             await context.close()
 
 
+async def _full_scroll_and_wait(page) -> None:
+    """
+    Scroll to the bottom of the page in increments so lazy-loaded card tiles
+    all render before we capture the HTML.  Then wait for any subsequent
+    network activity to settle.
+    """
+    prev_height = 0
+    for _ in range(15):                         # max 15 scroll steps
+        await page.evaluate("window.scrollBy(0, window.innerHeight * 1.5)")
+        await asyncio.sleep(1.2)
+        new_height = await page.evaluate("document.body.scrollHeight")
+        if new_height == prev_height:
+            break                               # page end reached
+        prev_height = new_height
+
+    # Scroll back to top so any sticky-header lazy loaders fire
+    await page.evaluate("window.scrollTo(0, 0)")
+    await asyncio.sleep(0.8)
+
+    # Try to dismiss cookie banners / overlays that block card tiles
+    for selector in [
+        "button[id*='accept']",
+        "button[class*='accept']",
+        "button[class*='cookie']",
+        "#onetrust-accept-btn-handler",
+        ".cc-btn.cc-allow",
+    ]:
+        try:
+            btn = page.locator(selector).first
+            if await btn.is_visible(timeout=800):
+                await btn.click()
+                await asyncio.sleep(0.5)
+        except Exception:
+            pass
+
+
 async def scrape_bank(name: str, url: str, browser,
                       existing_hashes: dict) -> list[dict]:
     """Scrape all cards for one bank. Returns list of changed card data dicts."""
@@ -231,8 +269,12 @@ async def scrape_bank(name: str, url: str, browser,
     results: list[dict] = []
 
     try:
-        await page.goto(url, timeout=60_000, wait_until="domcontentloaded")
-        await asyncio.sleep(random.randint(5, 10))
+        # Wait for network to go idle so JS-rendered card grids appear
+        await page.goto(url, timeout=90_000, wait_until="networkidle")
+        await asyncio.sleep(random.randint(3, 6))
+
+        # Scroll through the page so lazy-loaded tiles all render
+        await _full_scroll_and_wait(page)
 
         html  = await page.content()
         cards = discover_cards(html, url)
