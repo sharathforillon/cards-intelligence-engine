@@ -196,37 +196,90 @@ class SegmentIntelligenceEngine:
 
         return data
 
+    def _actual_monthly_profit_per_card(self, seg_name: str) -> float:
+        """
+        Compute actual monthly profit per card from DB P&L fields:
+        (interchange_income + interest_income - reward_cost - credit_loss) / active_cards.
+        Falls back to CLV simulation only when no DB records exist for this segment.
+        """
+        records = (
+            self.db.query(MashreqCardPerformance)
+            .filter(MashreqCardPerformance.segment == seg_name)
+            .all()
+        )
+        if records:
+            total_revenue = sum(
+                (r.interchange_income or 0) + (r.interest_income or 0)
+                - (r.reward_cost or 0) - (r.credit_loss or 0)
+                for r in records
+            )
+            total_active = sum(r.active_cards or 1 for r in records)
+            return total_revenue / max(total_active, 1)
+        # Fallback: use segment benchmark via simulation
+        seg = next((s for s in self.segments if s["name"] == seg_name), None)
+        if seg:
+            reward_rate, annual_fee = self._actual_params_for_segment(seg_name)
+            clv = self._clv_for_segment(seg, reward_rate=reward_rate, annual_fee=annual_fee)
+            return clv["monthly_profit"]
+        return 0.0
+
     def compute_growth_opportunities(self):
         """
-        For each segment, compute the profit headroom if reward rate lifted by 0.5pp.
-        Returns segments sorted by opportunity_aed descending.
+        For each segment, quantify the revenue upside from two levers:
+          1. Churn recovery — retaining 30 % of annually churned cards
+             (achievable via loyalty lock-in & personalised re-engagement)
+          2. Market penetration — growing the segment card base by 10 %
+             (achievable via targeted acquisition campaigns)
+
+        All profit figures are derived from *actual* DB P&L data
+        (interchange + interest − reward_cost − credit_loss) per active card.
+        Returned list is sorted by total revenue_opportunity_aed descending.
         """
         opportunities = []
         for seg in self.segments:
-            baseline = self._clv_for_segment(seg, reward_rate=DEFAULT_REWARD_RATE)
-            enhanced = self._clv_for_segment(seg, reward_rate=DEFAULT_REWARD_RATE + 0.005)
-
-            headroom_monthly = enhanced["monthly_profit"] - baseline["monthly_profit"]
-            # Negative headroom means cost increase: express as potential acquisition gain
             cards = self._cards_for_segment(seg["name"])
-            # Acquisition uplift: a 0.5pp rate improvement increases acquisition ~8%
-            acquisition_uplift = int(cards * 0.08)
-            revenue_opportunity = acquisition_uplift * baseline["monthly_profit"] * 12
-
             display = SEGMENT_DISPLAY.get(seg["name"], {})
+
+            # Actual monthly profit per card from real DB P&L (not simulation)
+            monthly_profit_per_card = self._actual_monthly_profit_per_card(seg["name"])
+
+            # ── Lever 1: Churn recovery ─────────────────────────────────────
+            # 30 % of churned cards are recoverable with retention programmes
+            recoverable_rate = 0.30
+            churn_recovery_cards = int(cards * seg["annual_churn"] * recoverable_rate)
+            churn_opportunity = churn_recovery_cards * max(monthly_profit_per_card, 0) * 12
+
+            # ── Lever 2: Market penetration ─────────────────────────────────
+            # A 10 % uplift in active card base is achievable within 12 months
+            penetration_uplift_cards = int(cards * 0.10)
+            penetration_opportunity = (
+                penetration_uplift_cards * max(monthly_profit_per_card, 0) * 12
+            )
+
+            total_opportunity = churn_opportunity + penetration_opportunity
+
             opportunities.append({
                 "key": seg["name"],
                 "label": display.get("label", seg["name"]),
                 "icon": display.get("icon", ""),
                 "tier_color": display.get("tier_color", "#2563eb"),
-                "current_profit_per_card": round(baseline["monthly_profit"], 2),
-                "enhanced_profit_per_card": round(enhanced["monthly_profit"], 2),
-                "profit_headroom_monthly": round(headroom_monthly, 2),
-                "acquisition_uplift_cards": acquisition_uplift,
-                "revenue_opportunity_aed": round(revenue_opportunity, 0),
-                "opportunity_size": "large" if revenue_opportunity > 5_000_000
-                                    else "medium" if revenue_opportunity > 1_000_000
-                                    else "small",
+                # Current economics (actual DB)
+                "current_profit_per_card": round(monthly_profit_per_card, 2),
+                "current_cards": cards,
+                "churn_rate": seg["annual_churn"],
+                # Churn lever
+                "churn_recovery_cards": churn_recovery_cards,
+                "churn_opportunity_aed": round(churn_opportunity, 0),
+                # Penetration lever
+                "penetration_uplift_cards": penetration_uplift_cards,
+                "penetration_opportunity_aed": round(penetration_opportunity, 0),
+                # Total
+                "revenue_opportunity_aed": round(total_opportunity, 0),
+                "opportunity_size": (
+                    "large"  if total_opportunity > 5_000_000 else
+                    "medium" if total_opportunity > 1_000_000 else
+                    "small"
+                ),
             })
 
         opportunities.sort(key=lambda x: x["revenue_opportunity_aed"], reverse=True)

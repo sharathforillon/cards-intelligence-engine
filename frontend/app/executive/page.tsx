@@ -29,14 +29,43 @@ type PortfolioKPIs = {
   blended_cac_aed: number;
 };
 
+type BankSnapshot = {
+  period?: string;
+  source?: string;
+  note?: string;
+  net_interest_yield_pct?: number;
+  cost_income_ratio?: number;
+  blended_reward_rate_pct?: number;
+  npl_rate_pct?: number;
+  delinquency_30dpd_pct?: number;
+  avg_revolve_rate_pct?: number;
+  avg_utilisation_pct?: number;
+  digital_penetration?: number;
+  market_share?: number | null;
+  raroc?: number | null;
+  roe?: number | null;
+  nps?: number | null;
+  nim?: number;
+};
+
+type CardProduct = {
+  card_name: string;
+  active_cards: number;
+  monthly_spend_aed: number;
+  reward_rate: number;
+  annual_fee: number;
+  revolve_rate: number;
+  monthly_profit_aed: number;
+};
+
 type Memo = {
   period: string;
   generated_at: string;
-  portfolio_kpis: PortfolioKPIs;
-  bank_snapshot: Record<string, number | string>;
+  portfolio_kpis: PortfolioKPIs & { cards_by_product?: CardProduct[] };
+  bank_snapshot: BankSnapshot;
   top_segments: { label: string; tier: string; tier_badge_color: string; profit_per_customer: number }[];
   underperforming_categories: { label: string; opportunity_index: number }[];
-  competitor_threats: { bank?: string; event?: string; impact?: string }[];
+  competitor_threats: { bank?: string; card?: string; event?: string; impact?: string }[];
   strategy_actions: { rank: number; action: string; expected_annual_profit_aed: number; clv_36m: number }[];
   profit_projection: { month: string; projected_profit_aed: number }[];
   ai_narrative: string;
@@ -166,6 +195,85 @@ export default function ExecutivePage() {
             </Panel>
           )}
 
+          {/* Portfolio Ratios (bank_snapshot) */}
+          {memo.bank_snapshot && Object.keys(memo.bank_snapshot).length > 0 && (
+            <Panel title="Portfolio Risk & Yield Ratios" accent="amber">
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                {memo.bank_snapshot.net_interest_yield_pct != null && (
+                  <KpiTile label="Net Interest Yield" value={`${memo.bank_snapshot.net_interest_yield_pct}%`} color="#7c3aed" />
+                )}
+                {memo.bank_snapshot.cost_income_ratio != null && (
+                  <KpiTile label="Cost-Income Ratio" value={`${memo.bank_snapshot.cost_income_ratio}%`} color={(memo.bank_snapshot.cost_income_ratio as number) > 80 ? "#e11d48" : "#059669"} />
+                )}
+                {memo.bank_snapshot.blended_reward_rate_pct != null && (
+                  <KpiTile label="Blended Reward Rate" value={`${memo.bank_snapshot.blended_reward_rate_pct}%`} color="#d97706" />
+                )}
+                {memo.bank_snapshot.npl_rate_pct != null && (
+                  <KpiTile label="NPL Rate" value={`${memo.bank_snapshot.npl_rate_pct}%`} color={(memo.bank_snapshot.npl_rate_pct as number) > 2 ? "#e11d48" : "#059669"} />
+                )}
+                {memo.bank_snapshot.delinquency_30dpd_pct != null && (
+                  <KpiTile label="30-DPD Delinquency" value={`${memo.bank_snapshot.delinquency_30dpd_pct}%`} color={(memo.bank_snapshot.delinquency_30dpd_pct as number) > 3 ? "#e11d48" : "#d97706"} />
+                )}
+                {memo.bank_snapshot.avg_revolve_rate_pct != null && (
+                  <KpiTile label="Revolve Rate" value={`${memo.bank_snapshot.avg_revolve_rate_pct}%`} color="#2563eb" />
+                )}
+                {memo.bank_snapshot.avg_utilisation_pct != null && (
+                  <KpiTile label="Utilisation Rate" value={`${memo.bank_snapshot.avg_utilisation_pct}%`} color="#0891b2" />
+                )}
+                {memo.bank_snapshot.digital_penetration != null && (
+                  <KpiTile label="Digital Penetration" value={`${memo.bank_snapshot.digital_penetration}%`} color="#059669" />
+                )}
+              </div>
+              {memo.bank_snapshot.note && (
+                <p className="mt-3 text-[10px] italic" style={{ color: "#6b7280" }}>
+                  ℹ {memo.bank_snapshot.note as string}
+                </p>
+              )}
+            </Panel>
+          )}
+
+          {/* Card-level P&L breakdown */}
+          {kpis?.cards_by_product && kpis.cards_by_product.length > 0 && (
+            <Panel title="Product P&L Breakdown" accent="blue">
+              <div className="overflow-auto rounded-xl" style={{ border: "1px solid #d1dde9" }}>
+                <table className="data-table">
+                  <thead>
+                    <tr>
+                      <th>Card</th>
+                      <th>Active Cards</th>
+                      <th>Monthly Spend</th>
+                      <th>Reward Rate</th>
+                      <th>Annual Fee</th>
+                      <th>Revolve Rate</th>
+                      <th>Monthly Profit</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {kpis.cards_by_product.map((c) => (
+                      <tr key={c.card_name}>
+                        <td className="font-semibold" style={{ color: "#1e2d3d" }}>{c.card_name}</td>
+                        <td>{c.active_cards.toLocaleString("en-US")}</td>
+                        <td>AED {(c.monthly_spend_aed / 1e6).toFixed(0)}M</td>
+                        <td>{c.reward_rate}%</td>
+                        <td>{c.annual_fee > 0 ? `AED ${c.annual_fee}` : "Free"}</td>
+                        <td>{c.revolve_rate}%</td>
+                        <td style={{ fontWeight: 700, color: c.monthly_profit_aed >= 0 ? "#059669" : "#e11d48" }}>
+                          AED {(c.monthly_profit_aed / 1e6).toFixed(2)}M
+                          {c.monthly_profit_aed < 0 && " ⚠"}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              {kpis.cards_by_product.some((c) => c.monthly_profit_aed < 0) && (
+                <div className="mt-3 rounded-lg px-4 py-2.5 text-xs" style={{ background: "rgba(225,29,72,0.06)", border: "1px solid rgba(225,29,72,0.18)", color: "#e11d48" }}>
+                  ⚠ One or more products show negative monthly P&L. Review reward cost structure and fee pricing.
+                </div>
+              )}
+            </Panel>
+          )}
+
           {/* AI Narrative */}
           {memo.ai_narrative && (
             <Panel title="AI-Generated Executive Summary" accent="violet">
@@ -181,13 +289,14 @@ export default function ExecutivePage() {
           {/* Competitor threats + segments in 2 cols */}
           <div className="grid gap-5 lg:grid-cols-2">
             {/* Competitor threats */}
-            <Panel title="Competitor Threats" accent="rose">
+            <Panel title="Competitor Intelligence" accent="rose">
               <div className="rounded-xl" style={{ border: "1px solid #d1dde9" }}>
                 <table className="data-table">
                   <thead>
                     <tr>
                       <th>Bank</th>
-                      <th>Event</th>
+                      <th>Card</th>
+                      <th>Offer</th>
                       <th>Impact</th>
                     </tr>
                   </thead>
@@ -195,6 +304,7 @@ export default function ExecutivePage() {
                     {memo.competitor_threats.map((t, i) => (
                       <tr key={i}>
                         <td style={{ fontWeight: 600, color: "#1e2d3d" }}>{t.bank ?? "?"}</td>
+                        <td style={{ color: "#4a6480", fontSize: 11 }}>{t.card ?? "—"}</td>
                         <td style={{ color: "#2d4a62" }}>{t.event ?? "—"}</td>
                         <td>
                           <span

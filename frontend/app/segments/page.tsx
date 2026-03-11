@@ -43,11 +43,15 @@ type GrowthRow = {
   label: string;
   icon: string;
   tier_color: string;
-  acquisition_uplift_cards: number;
+  current_profit_per_card: number;
+  current_cards: number;
+  churn_rate: number;
+  churn_recovery_cards: number;
+  churn_opportunity_aed: number;
+  penetration_uplift_cards: number;
+  penetration_opportunity_aed: number;
   revenue_opportunity_aed: number;
   opportunity_size: string;
-  current_profit_per_card: number;
-  enhanced_profit_per_card: number;
 };
 
 const API = "http://localhost:8000";
@@ -361,10 +365,10 @@ export default function SegmentsPage() {
           <div className="mb-5 flex items-center justify-between">
             <div>
               <h2 className="text-[11px] font-bold uppercase tracking-[0.18em]" style={{ color: "#0d1f2f" }}>
-                Growth Opportunities · Revenue Upside from +0.5pp Reward Rate
+                Growth Opportunities · Churn Recovery &amp; Market Penetration
               </h2>
               <p className="mt-0.5 text-[11px]" style={{ color: "#4a6480" }}>
-                Projected card acquisition uplift and profit gain per segment
+                12-month revenue upside from retaining 30% of churned cards + 10% base growth — based on actual portfolio P&amp;L
               </p>
             </div>
           </div>
@@ -374,14 +378,13 @@ export default function SegmentsPage() {
           ) : (
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
               {growth.map((g) => {
-                const profitLift = g.enhanced_profit_per_card - g.current_profit_per_card;
-                const liftPct    = g.current_profit_per_card > 0
-                  ? ((profitLift / g.current_profit_per_card) * 100).toFixed(1)
-                  : "—";
                 const oppColor =
                   g.opportunity_size === "large"  ? "#059669"
                   : g.opportunity_size === "medium" ? "#d97706"
                   : "#6b7280";
+                const isNegativeProfit = g.current_profit_per_card < 0;
+                const churnPct = (g.churn_recovery_cards / Math.max(g.current_cards, 1) * 100).toFixed(1);
+                const penPct   = "10.0";
 
                 return (
                   <div
@@ -398,45 +401,61 @@ export default function SegmentsPage() {
                       <span style={{ fontSize: 20 }}>{g.icon}</span>
                       <span
                         className="rounded-full px-2 py-0.5 text-[9px] font-bold uppercase text-white"
-                        style={{ background: oppColor }}
+                        style={{ background: isNegativeProfit ? "#e11d48" : oppColor }}
                       >
-                        {g.opportunity_size}
+                        {isNegativeProfit ? "loss-making" : g.opportunity_size}
                       </span>
                     </div>
                     <p className="mt-2 text-sm font-bold" style={{ color: "#0d1f2f" }}>{g.label}</p>
 
-                    {/* Card uplift */}
+                    {/* Profit per card */}
                     <div className="mt-3">
-                      <p className="text-[9px] font-bold uppercase tracking-[0.12em]" style={{ color: "#3d5570" }}>Card Uplift</p>
-                      <p className="text-xl font-bold tabular-nums" style={{ color: g.tier_color }}>
-                        +{g.acquisition_uplift_cards.toLocaleString("en-US")}
+                      <p className="text-[9px] font-bold uppercase tracking-[0.12em]" style={{ color: "#3d5570" }}>Profit / Card / Month</p>
+                      <p className="text-xl font-bold tabular-nums" style={{ color: isNegativeProfit ? "#e11d48" : g.tier_color }}>
+                        AED {g.current_profit_per_card.toFixed(2)}
                       </p>
-                      <p className="text-[10px]" style={{ color: "#4a6480" }}>new cards acquired</p>
+                      {isNegativeProfit && (
+                        <p className="text-[10px] mt-0.5" style={{ color: "#e11d48" }}>⚠ Requires pricing review</p>
+                      )}
                     </div>
 
-                    {/* Revenue opportunity */}
-                    <div className="mt-3 rounded-lg px-3 py-2" style={{ background: `${oppColor}0d`, border: `1px solid ${oppColor}22` }}>
-                      <p className="text-[9px] font-bold uppercase tracking-[0.12em]" style={{ color: oppColor }}>Revenue Opportunity</p>
-                      <p className="mt-0.5 text-base font-bold tabular-nums" style={{ color: oppColor }}>
-                        AED {(g.revenue_opportunity_aed / 1_000_000).toFixed(1)}M
-                      </p>
+                    {/* Levers */}
+                    <div className="mt-3 space-y-2">
+                      {/* Churn recovery */}
+                      <div className="rounded-lg px-2.5 py-2" style={{ background: "rgba(37,99,235,0.06)", border: "1px solid rgba(37,99,235,0.15)" }}>
+                        <p className="text-[9px] font-bold uppercase tracking-[0.10em]" style={{ color: "#2563eb" }}>Churn Recovery ({churnPct}% of base)</p>
+                        <div className="flex items-baseline gap-1">
+                          <p className="text-sm font-bold tabular-nums" style={{ color: "#2563eb" }}>
+                            {isNegativeProfit ? "—" : `AED ${(g.churn_opportunity_aed / 1_000).toFixed(0)}K`}
+                          </p>
+                          <span className="text-[10px]" style={{ color: "#4a6480" }}>/ yr · {g.churn_recovery_cards.toLocaleString()} cards</span>
+                        </div>
+                      </div>
+                      {/* Penetration */}
+                      <div className="rounded-lg px-2.5 py-2" style={{ background: "rgba(5,150,105,0.06)", border: "1px solid rgba(5,150,105,0.15)" }}>
+                        <p className="text-[9px] font-bold uppercase tracking-[0.10em]" style={{ color: "#059669" }}>Market Penetration (+{penPct}%)</p>
+                        <div className="flex items-baseline gap-1">
+                          <p className="text-sm font-bold tabular-nums" style={{ color: "#059669" }}>
+                            {isNegativeProfit ? "—" : `AED ${(g.penetration_opportunity_aed / 1_000).toFixed(0)}K`}
+                          </p>
+                          <span className="text-[10px]" style={{ color: "#4a6480" }}>/ yr · {g.penetration_uplift_cards.toLocaleString()} cards</span>
+                        </div>
+                      </div>
                     </div>
 
-                    {/* Before → after profit per card */}
-                    <div className="mt-3 space-y-1">
-                      <div className="flex items-center justify-between text-[10px]">
-                        <span style={{ color: "#4a6480" }}>Current profit/card</span>
-                        <span className="font-semibold" style={{ color: "#1e2d3d" }}>
-                          AED {g.current_profit_per_card.toFixed(0)}
-                        </span>
+                    {/* Total opportunity */}
+                    {!isNegativeProfit && g.revenue_opportunity_aed > 0 && (
+                      <div className="mt-3 rounded-lg px-3 py-2" style={{ background: `${oppColor}0d`, border: `1px solid ${oppColor}22` }}>
+                        <p className="text-[9px] font-bold uppercase tracking-[0.12em]" style={{ color: oppColor }}>Total Opportunity</p>
+                        <p className="mt-0.5 text-base font-bold tabular-nums" style={{ color: oppColor }}>
+                          AED {g.revenue_opportunity_aed >= 1_000_000
+                            ? `${(g.revenue_opportunity_aed / 1_000_000).toFixed(1)}M`
+                            : `${(g.revenue_opportunity_aed / 1_000).toFixed(0)}K`
+                          }
+                        </p>
+                        <p className="text-[9px]" style={{ color: "#4a6480" }}>annual upside</p>
                       </div>
-                      <div className="flex items-center justify-between text-[10px]">
-                        <span style={{ color: "#4a6480" }}>Enhanced profit/card</span>
-                        <span className="font-bold" style={{ color: "#059669" }}>
-                          AED {g.enhanced_profit_per_card.toFixed(0)} (+{liftPct}%)
-                        </span>
-                      </div>
-                    </div>
+                    )}
                   </div>
                 );
               })}

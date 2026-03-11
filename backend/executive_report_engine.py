@@ -82,22 +82,84 @@ class ExecutiveReportEngine:
         }
 
     def _bank_snapshot(self) -> dict:
+        """
+        Return bank-level ratios from the BankPortfolioSnapshot table if available.
+        When no snapshot record exists, derive key ratios directly from
+        MashreqCardPerformance portfolio data so the section is never blank.
+        """
         record = (
             self.db.query(BankPortfolioSnapshot)
             .order_by(BankPortfolioSnapshot.timestamp.desc())
             .first()
         )
-        if not record:
+        if record:
+            return {
+                "period": record.period,
+                "market_share": record.market_share,
+                "nim": record.nim,
+                "cost_income_ratio": record.cost_income_ratio,
+                "raroc": record.raroc,
+                "roe": record.roe,
+                "nps": record.nps,
+                "digital_penetration": record.digital_penetration,
+                "source": "snapshot",
+            }
+
+        # ── Derive ratios from portfolio performance data ──────────────────
+        records = self.db.query(MashreqCardPerformance).all()
+        if not records:
             return {}
+
+        total_interchange = sum(r.interchange_income or 0 for r in records)
+        total_interest    = sum(r.interest_income  or 0 for r in records)
+        total_reward_cost = sum(r.reward_cost       or 0 for r in records)
+        total_credit_loss = sum(r.credit_loss       or 0 for r in records)
+        avg_npl           = sum((r.npl_rate or 0)   for r in records) / max(len(records), 1)
+        avg_revolve       = sum((r.revolve_rate or 0) for r in records) / max(len(records), 1)
+        avg_util          = sum((r.utilization_rate or 0) for r in records) / max(len(records), 1)
+        avg_delinquency   = sum((r.delinquency_30dpd or 0) for r in records) / max(len(records), 1)
+
+        # Cost-Income Ratio: (reward_cost + credit_loss) / (interchange + interest)
+        total_revenue = total_interchange + total_interest
+        total_cost    = total_reward_cost + total_credit_loss
+        cir = round(total_cost / max(total_revenue, 1) * 100, 1) if total_revenue > 0 else None
+
+        # Net Interest Yield (credit card metric): avg revolve × APR
+        # (true NIM requires funding cost data not available here)
+        apr = getattr(self.config, "interest_rate", 0.26) if self.config else 0.26
+        net_interest_yield = round(avg_revolve * apr * 100, 1)
+
+        # Blended reward rate across portfolio
+        total_spend = sum(r.monthly_spend or 0 for r in records)
+        blended_reward_rate = round(
+            total_reward_cost / max(total_spend, 1) * 100, 2
+        )
+
+        # Weighted avg NPL + delinquency
+        npl_pct = round(avg_npl * 100, 2)
+        delinquency_pct = round(avg_delinquency * 100, 2)
+
         return {
-            "period": record.period,
-            "market_share": record.market_share,
-            "nim": record.nim,
-            "cost_income_ratio": record.cost_income_ratio,
-            "raroc": record.raroc,
-            "roe": record.roe,
-            "nps": record.nps,
-            "digital_penetration": record.digital_penetration,
+            "period": "Derived from portfolio",
+            "source": "portfolio_derived",
+            # Yield & Margin
+            "net_interest_yield_pct": net_interest_yield,
+            "cost_income_ratio": cir,
+            "blended_reward_rate_pct": blended_reward_rate,
+            # Risk indicators
+            "npl_rate_pct": npl_pct,
+            "delinquency_30dpd_pct": delinquency_pct,
+            "avg_revolve_rate_pct": round(avg_revolve * 100, 1),
+            "avg_utilisation_pct": round(avg_util * 100, 1),
+            # External data required — show as null rather than fabricate
+            "market_share": None,   # requires Central Bank UAE data
+            "raroc": None,          # requires regulatory capital data
+            "roe": None,            # requires equity base data
+            "nps": None,            # requires customer survey data
+            "note": (
+                "Net interest yield = avg revolve rate × 26% APR. "
+                "Market share, RAROC, ROE, and NPS require external data inputs."
+            ),
         }
 
     # ── Segment & category highlights ─────────────────────────────────────

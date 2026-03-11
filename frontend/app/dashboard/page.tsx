@@ -224,6 +224,11 @@ export default function Dashboard() {
           ))}
         </motion.div>
 
+        {/* ── PORTFOLIO HEALTH ALERTS ─────────────────────────────────────── */}
+        {segments && (
+          <PortfolioAlertStrip segments={topSegments} categories={categories ?? []} />
+        )}
+
         {/* ── SECTION 1: Battlefield + Executive Intelligence ─────────────── */}
         <section className="grid gap-5 lg:grid-cols-12">
           <motion.div
@@ -305,6 +310,84 @@ export default function Dashboard() {
         </section>
 
       </div>
+    </div>
+  );
+}
+
+/* ── Portfolio Health Alert Strip ──────────────────────────────────────── */
+
+function PortfolioAlertStrip({
+  segments,
+  categories,
+}: {
+  segments: SegmentRow[];
+  categories: CategoryMetric[];
+}) {
+  // Build alert list from live data
+  const alerts: { icon: string; color: string; bg: string; border: string; text: string; href: string }[] = [];
+
+  // Alert: any segment with profit_per_customer < 0
+  segments.forEach((seg) => {
+    if (seg.profit_per_customer < 0) {
+      alerts.push({
+        icon: "⚠",
+        color: "#e11d48",
+        bg: "rgba(225,29,72,0.06)",
+        border: "rgba(225,29,72,0.18)",
+        text: `${seg.label} segment: loss-making at AED ${seg.profit_per_customer.toFixed(2)}/card/mo — pricing review needed`,
+        href: "/segments",
+      });
+    }
+  });
+
+  // Alert: any segment with churn_rate > 20%
+  segments.forEach((seg) => {
+    if (seg.churn_rate > 0.20) {
+      alerts.push({
+        icon: "📉",
+        color: "#d97706",
+        bg: "rgba(217,119,6,0.06)",
+        border: "rgba(217,119,6,0.18)",
+        text: `${seg.label} segment: high churn at ${(seg.churn_rate * 100).toFixed(0)}% annual — retention programme required`,
+        href: "/segments",
+      });
+    }
+  });
+
+  // Alert: category gaps with opportunity_index ≥ 0.5 (significant underperformance)
+  const bigGaps = categories.filter((c) => c.opportunity_index >= 0.5);
+  if (bigGaps.length > 0) {
+    bigGaps.forEach((c) => {
+      alerts.push({
+        icon: "🎯",
+        color: "#7c3aed",
+        bg: "rgba(124,58,237,0.06)",
+        border: "rgba(124,58,237,0.18)",
+        text: `${c.label}: Mashreq ${(c.mashreq_rate * 100).toFixed(0)}% vs market leader ${(c.market_leader_rate * 100).toFixed(0)}% (${c.market_leader_bank}) — ${(c.opportunity_index * 100).toFixed(0)}% gap`,
+        href: "/categories",
+      });
+    });
+  }
+
+  if (alerts.length === 0) return null;
+
+  return (
+    <div className="space-y-2">
+      {alerts.map((a, i) => (
+        <Link key={i} href={a.href} style={{ textDecoration: "none" }}>
+          <div
+            className="flex cursor-pointer items-center gap-3 rounded-xl px-4 py-2.5 transition-opacity hover:opacity-80"
+            style={{ background: a.bg, border: `1px solid ${a.border}` }}
+          >
+            <span style={{ fontSize: 14 }}>{a.icon}</span>
+            <span className="text-[11px] font-semibold" style={{ color: a.color }}>
+              ACTION REQUIRED
+            </span>
+            <span className="text-[11px]" style={{ color: "#1e2d3d" }}>{a.text}</span>
+            <span className="ml-auto text-[10px] font-semibold" style={{ color: a.color }}>View →</span>
+          </div>
+        </Link>
+      ))}
     </div>
   );
 }
