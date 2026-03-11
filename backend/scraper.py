@@ -64,13 +64,19 @@ def detect_product_type(card_name):
     return "credit"
 
 
-async def scrape_card(bank_name, card, browser):
+async def scrape_card(bank_name: str, card: dict, browser, existing_hashes: dict) -> dict | None:
+    """
+    Scrape one card page and return its data as a plain dict.
 
+    IMPORTANT: this function does NOT write anything to the database.
+    All data is accumulated in memory and committed atomically only after
+    the full scrape finishes (see run_scraper).
+
+    Returns None when:
+      - the page hash hasn't changed (no update needed), or
+      - an error occurs (logged separately).
+    """
     async with semaphore:
-
-        db = SessionLocal()
-
-        orchestrator = StrategyOrchestrator(db)
 
         card_name = card["card_name"]
         url = card["url"]
@@ -94,17 +100,12 @@ async def scrape_card(bank_name, card, browser):
 
             page_hash = hash_content(page_text)
 
-            existing = db.query(CompetitorCard).filter(
-                CompetitorCard.bank_name == bank_name,
-                CompetitorCard.card_name == card_name
-            ).first()
-
-            # skip AI if page unchanged
-            if existing and existing.page_hash == page_hash:
-
+            # Compare against the snapshot taken before scraping started.
+            # If the page hasn't changed we don't need to call the AI parser.
+            hash_key = (bank_name, card_name)
+            if existing_hashes.get(hash_key) == page_hash:
                 logger.info(f"No change detected → skipping AI: {card_name}")
-
-                return
+                return None
 
             logger.warning(f"Page change detected → running AI parser: {card_name}")
 
@@ -112,53 +113,34 @@ async def scrape_card(bank_name, card, browser):
 
             product_type = detect_product_type(card_name)
 
-            if existing:
-
-                existing.page_hash = page_hash
-                existing.product_type = product_type
-                existing.annual_fee = metrics.annual_fee
-                existing.cashback_rate = metrics.cashback_rate
-                existing.welcome_bonus = metrics.welcome_bonus_value
-                existing.last_updated = datetime.now(timezone.utc)
-
-                db.commit()
-
-                await orchestrator.handle_competitor_change(
-                    competitor_name=bank_name,
-                    new_cashback=metrics.cashback_rate.get("base", 0),
-                    new_fee=metrics.annual_fee
-                )
-
-            else:
-
-                new_card = CompetitorCard(
-                    bank_name=bank_name,
-                    card_name=card_name,
-                    product_type=product_type,
-                    page_hash=page_hash,
-                    annual_fee=metrics.annual_fee,
-                    cashback_rate=metrics.cashback_rate,
-                    welcome_bonus=metrics.welcome_bonus_value,
-                    last_updated=datetime.now(timezone.utc)
-                )
-
-                db.add(new_card)
-                db.commit()
-
-                logger.info(f"Indexed new card: {bank_name} → {card_name}")
+            return {
+                "bank_name": bank_name,
+                "card_name": card_name,
+                "product_type": product_type,
+                "page_hash": page_hash,
+                "annual_fee": metrics.annual_fee,
+                "cashback_rate": metrics.cashback_rate,
+                "welcome_bonus": metrics.welcome_bonus_value,
+                "last_updated": datetime.now(timezone.utc),
+            }
 
         except Exception as e:
 
             logger.error(f"Card scrape failed: {card_name} → {e}")
+            return None
 
         finally:
 
             await context.close()
-            db.close()
 
 
-async def scrape_bank(name, url, browser):
+async def scrape_bank(name: str, url: str, browser, existing_hashes: dict) -> list[dict]:
+    """
+    Scrape all cards for one bank.
 
+    Returns a list of card data dicts for cards whose pages have changed.
+    Does NOT write to the database.
+    """
     logger.info(f"Scanning bank card index: {name}")
 
     context = await browser.new_context(
@@ -166,6 +148,7 @@ async def scrape_bank(name, url, browser):
     )
 
     page = await context.new_page()
+    results: list[dict] = []
 
     try:
 
@@ -179,13 +162,11 @@ async def scrape_bank(name, url, browser):
 
         logger.info(f"{name}: discovered {len(cards)} cards")
 
-        tasks = []
+        tasks = [scrape_card(name, card, browser, existing_hashes) for card in cards]
 
-        for card in cards:
+        gathered = await asyncio.gather(*tasks)
 
-            tasks.append(scrape_card(name, card, browser))
-
-        await asyncio.gather(*tasks)
+        results = [r for r in gathered if r is not None]
 
     except Exception as e:
 
@@ -195,12 +176,39 @@ async def scrape_bank(name, url, browser):
 
         await context.close()
 
+    return results
+
 
 async def run_scraper():
+    """
+    Full scrape cycle with atomic database update.
 
+    Phase 1 – Read:  snapshot existing page hashes from the DB (read-only).
+    Phase 2 – Scrape: visit every bank / card URL, accumulate changed cards
+                       entirely in memory.  The live DB table is untouched.
+    Phase 3 – Commit: only after ALL banks have been scraped successfully,
+                       open a single DB transaction and upsert every changed
+                       card at once.  If the commit fails, the existing data
+                       is rolled back and preserved intact.
+    """
+
+    # ── Phase 1: snapshot existing hashes (read-only) ────────────────────────
+    db = SessionLocal()
+    try:
+        existing_records = db.query(CompetitorCard).all()
+        existing_hashes: dict[tuple, str] = {
+            (r.bank_name, r.card_name): r.page_hash
+            for r in existing_records
+        }
+        logger.info(f"Loaded {len(existing_hashes)} existing card hashes for change detection.")
+    finally:
+        db.close()
+
+    # ── Phase 2: scrape all banks into memory ─────────────────────────────────
     banks = list(BANK_URLS.items())
-
     random.shuffle(banks)
+
+    all_scraped: list[dict] = []
 
     async with async_playwright() as p:
 
@@ -208,15 +216,86 @@ async def run_scraper():
 
         for name, url in banks:
 
-            await scrape_bank(name, url, browser)
+            bank_results = await scrape_bank(name, url, browser, existing_hashes)
+
+            all_scraped.extend(bank_results)
 
             delay = random.randint(30, 90)
-
-            logger.info(f"Sleeping {delay}s before next bank")
-
+            logger.info(
+                f"Bank '{name}' done — {len(bank_results)} changed card(s). "
+                f"Sleeping {delay}s before next bank."
+            )
             await asyncio.sleep(delay)
 
         await browser.close()
+
+    # ── Phase 3: atomic DB commit ─────────────────────────────────────────────
+    if not all_scraped:
+        logger.info("Scrape complete — no page changes detected. Database is unchanged.")
+        return
+
+    logger.info(
+        f"Scrape complete. Committing {len(all_scraped)} updated card(s) to the "
+        "database in a single transaction…"
+    )
+
+    db = SessionLocal()
+    orchestrator = StrategyOrchestrator(db)
+
+    try:
+        for card_data in all_scraped:
+
+            bank_name = card_data["bank_name"]
+            card_name = card_data["card_name"]
+
+            existing = db.query(CompetitorCard).filter(
+                CompetitorCard.bank_name == bank_name,
+                CompetitorCard.card_name == card_name,
+            ).first()
+
+            if existing:
+                # Update existing record with freshly scraped values
+                existing.page_hash    = card_data["page_hash"]
+                existing.product_type = card_data["product_type"]
+                existing.annual_fee   = card_data["annual_fee"]
+                existing.cashback_rate= card_data["cashback_rate"]
+                existing.welcome_bonus= card_data["welcome_bonus"]
+                existing.last_updated = card_data["last_updated"]
+
+                # Fire strategy-change alerts now that data is confirmed complete
+                await orchestrator.handle_competitor_change(
+                    competitor_name=bank_name,
+                    new_cashback=card_data["cashback_rate"].get("base", 0)
+                        if isinstance(card_data["cashback_rate"], dict) else 0,
+                    new_fee=card_data["annual_fee"],
+                )
+
+            else:
+                # Brand-new card discovered during this scrape
+                new_card = CompetitorCard(
+                    bank_name    = bank_name,
+                    card_name    = card_name,
+                    product_type = card_data["product_type"],
+                    page_hash    = card_data["page_hash"],
+                    annual_fee   = card_data["annual_fee"],
+                    cashback_rate= card_data["cashback_rate"],
+                    welcome_bonus= card_data["welcome_bonus"],
+                    last_updated = card_data["last_updated"],
+                )
+                db.add(new_card)
+                logger.info(f"Indexed new card: {bank_name} → {card_name}")
+
+        # Single commit — if anything fails here, rollback preserves old data
+        db.commit()
+        logger.info("✓ Database updated successfully with latest scraped data.")
+
+    except Exception as e:
+        db.rollback()
+        logger.error(f"Database commit failed — existing data preserved: {e}")
+        raise
+
+    finally:
+        db.close()
 
 
 if __name__ == "__main__":
